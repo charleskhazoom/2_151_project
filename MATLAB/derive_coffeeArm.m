@@ -1,4 +1,5 @@
 clear all; clc
+linearize_dynamics =0;
 name = 'coffeeArm';
 
 % Define variables for time, generalized coordinates + derivatives, controls, and parameters 
@@ -76,8 +77,14 @@ Vg = Vg2 + Vg3 + Vg4;
 
 Q_f = F2Q(F_x*ihat,rCart);
 Q_tau1 = M2Q(tau1*khat,omega1*khat);
-Q_tau2 = M2Q(tau2*khat,omega2*khat); 
-Q_tau3 = M2Q(tau3*khat,omega3*khat); 
+
+% CHARLES % I think we have to use this instead since the torques on the
+% last two links are applied from the previous link (see Book Mitigui p. 227)
+Q_tau2 = M2Q(tau2*khat,dth2*khat); 
+Q_tau3 = M2Q(tau3*khat,dth3*khat);
+
+% Q_tau2 = M2Q(tau2*khat,omega2*khat); 
+% Q_tau3 = M2Q(tau3*khat,omega3*khat); 
 
 Q_tau = Q_tau1 + Q_tau2 + Q_tau3;
 
@@ -96,9 +103,14 @@ eom = ddt(jacobian(L,dq).') - jacobian(L,q).' - Q;
 A = jacobian(eom,ddq);
 b = A*ddq - eom;
 
-A_lin = jacobian(A\(b),q); % linearized eom @ state
-B_lin = jacobian(A\(b),u); % linearized eom @ state
 
+% sol = solve(eom,ddx, ddth1, ddth2, ddth3); % I tried this but its still
+% too slow.
+% Does this take forever on your side ?
+if linearize_dynamics
+    A_lin = jacobian(A\(b),q); % linearized eom @ state
+    B_lin = jacobian(A\(b),u); % linearized eom @ state
+end
 % Equations of motion are
 % eom = A *ddq + (coriolis term) + (gravitational term) - Q = 0
 Mass_Joint_Sp = A;
@@ -117,11 +129,13 @@ r4 = r4(1:2);
 dr4= dr4(1:2);
 J  = J(1:2,1:2);
 dJ = dJ(1:2,1:2);
-
+%%
 matlabFunction(A,'file',['A_' name],'vars',{z p});
 matlabFunction(b,'file',['b_' name],'vars',{z u p});
-matlabFunction(A_lin,'file',['A_lin_' name],'vars',{z u p});
-matlabFunction(B_lin,'file',['B_lin_' name],'vars',{z u p});
+if linearize_dynamics
+    matlabFunction(A_lin,'file',['A_lin_' name],'vars',{z u p});
+    matlabFunction(B_lin,'file',['B_lin_' name],'vars',{z u p});
+end
 matlabFunction(E,'file',['energy_' name],'vars',{z p});
 matlabFunction(r4,'file',['position_endEffector'],'vars',{z p});
 matlabFunction(dr4,'file',['velocity_endEffector'],'vars',{z p});

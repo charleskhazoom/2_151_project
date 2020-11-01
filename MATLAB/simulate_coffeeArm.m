@@ -12,9 +12,12 @@ function simulate_coffeeArm()
     l_4 = 12*0.0254;
     g = 9.81;    
 
-    %% Parameter vector
+    %% Parameter vector (real system)
     p   = [m1 m2 m3 m4 h_1 l_1 l_2 l_3 l_4 g]';        % parameters
-       
+    %% Parameter vector (estimated system)
+
+    p_estim = p; % e
+    p_estim(1:4)=p_estim(1:4)*1; % assume all masses are overestimated by some percentage
     %% Simulation Parameters Set 2 -- Operational Space Control
     
     p_traj.omega = 3;
@@ -105,8 +108,8 @@ function simulate_coffeeArm()
     animateSol(tspan, z_out,p);
 end
 
-function tau = control_law(t, z, p, p_traj)
-tau = [0; 0; 0; 0];
+function u = control_law(t, z, p, p_traj)
+u = [0; 0; 0; 0];
 %     % Controller gains, Update as necessary for Problem 1
 %     K_x = 150.; % Spring stiffness X
 %     K_y = 150.; % Spring stiffness Y
@@ -152,17 +155,55 @@ tau = [0; 0; 0; 0];
 %     % Map to joint torques  
 %     %tau = J' * f;
 end
+function u = control_law_feedback_linearization(t, z, p)
+u = [0; 0; 0; 0];
+%     % Controller gains, Update as necessary for Problem 1
+     
+%     % Actual position and velocity 
+%     
+%     % Quesiton 1.1
+%     J  = jacobian_foot(z,p);
+%     Mass = A_coffeeArm(z,p);
+    V = Corr_arm(z,p); 
+%     jdot = jacobian_dot_endEffector(z,p);
+    G = Grav_arm(z,p);
+    
+    w = 0; % do lqr here 
+    u = V+G + w;
+%     
+%     A = inv(J*inv(Mass)*J');
+%     mu = A*J*inv(Mass)*V-A*jdot*z(3:4);
+%     % 1.4 Improper estimation of mu
+%     %random= 1+((rand(1)*2-2)*.2); %+- 20%
+%     %mu = random*(A*J*inv(Mass)*V-A*jdot*z(3:4));
+%     
+%     rho = A*J*inv(Mass)*G;
+%     
+%     f  = [aEd(1)+ K_x * (rEd(1) - rE(1) ) + D_x * (vEd(1) - vE(1) ) ;
+%           aEd(2)+ K_y * (rEd(2) - rE(2) ) + D_y * (vEd(2) - vE(2) ) ];
+%    
+%     tau = J' *(A*f + mu + rho);
+%     
+%     % Compute virtual foce for Question 1.4 and 1.5
+%     %f  = [K_x * (rEd(1) - rE(1) ) + D_x * ( - vE(1) ) ;
+%     %      K_y * (rEd(2) - rE(2) ) + D_y * ( - vE(2) ) ];
+%     
+%     %% Task-space compensation and feed forward for Question 1.8
+% 
+%     % Map to joint torques  
+%     %tau = J' * f;
+end
 
-
-function dz = dynamics(t,z,p,p_traj)
+function dz = dynamics(t,z,p,p_traj,p_estim)
     % Get mass matrix
     A = A_coffeeArm(z,p);
     
-    % Compute Controls
-    tau = control_law(t,z,p,p_traj);
+    % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
+%     u = control_law(t,z,p,p_traj);
+    u = control_law_feedback_linearization(t,z,p_estim);
     
     % Get b = Q - V(q,qd) - G(q)
-    b = b_coffeeArm(z,tau,p);
+    b = b_coffeeArm(z,u,p);
     
     % Solve for qdd.
     qdd = A\(b);
