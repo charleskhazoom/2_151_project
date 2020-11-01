@@ -1,4 +1,4 @@
-function simulate_leg()
+function simulate_coffeeArm()
     clear; clc
     %% Define fixed paramters
     m1 =50 ;         

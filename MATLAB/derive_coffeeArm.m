@@ -81,7 +81,7 @@ Q_tau3 = M2Q(tau3*khat,omega3*khat);
 
 Q_tau = Q_tau1 + Q_tau2 + Q_tau3;
 
-Q = Q_tau;
+Q = Q_tau + Q_f;
 
 % Assemble the array of cartesian coordinates of the key points
 keypoints = [rCart(1:2) r2(1:2) r3(1:2) r4(1:2)];
