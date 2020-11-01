@@ -28,12 +28,12 @@ function simulate_coffeeArm()
     
     %% Perform Dynamic simulation
     dt = 0.001;
-    tf = 2; %May have to change if 10 second not enough to complete task
+    tf = 4; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
     p_cup_initial = [-0.8,0.85]';
-    q0 = invKin_arm(p_cup_initial,p,[0,0,0,0]');
+    q0 = eval(invKin_arm(p_cup_initial,p,[0,0,0,0]'));
     z0 = [q0;0;0;0;0];
     
     p_cup_final = [1,0.2]'; % need to specify orientation of last link in the world frame too!
@@ -51,7 +51,8 @@ function simulate_coffeeArm()
     C_fl = eye(8,8); % full state feedback for identity matrix
     rank(ctrb(A_fl,B_fl)) % full rank
     
-    Q_fl = [eye(8,8)]*1000;
+    Q_fl = [eye(8,8)]*100;
+    Q_fl(2,2) = 1000;
     R_fl = [0.001 0 0 0 ;...
             0 0.001 0 0;...
             0 0 0.001 0;...
