@@ -65,7 +65,8 @@ function simulate_coffeeArm()
     %%
     
     for i=1:num_step-1
-        dz = dynamics(tspan(i), z_out(:,i), p, p_traj,p_estim,p_ctrl_fl);
+        u_out(:,i) = control_law_feedback_linearization(tspan(i),z_out(:,i),p_estim,p_ctrl_fl);
+        dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p, p_traj);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
         
@@ -198,13 +199,13 @@ function u = control_law_feedback_linearization(t, z, p,p_ctrl_fl)
 
 end
 
-function dz = dynamics(t,z,p,p_traj,p_estim,p_ctrl)
+function dz = dynamics(t,z,u,p,p_traj)
     % Get mass matrix
     A = A_coffeeArm(z,p);
     
     % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
 %     u = control_law(t,z,p,p_traj);
-    u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
+%     u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
     
     % Get b = Q - V(q,qd) - G(q)
     b = b_coffeeArm(z,u,p);
@@ -311,4 +312,74 @@ function animateSol(tspan, x, p)
 
         pause(.01)
     end
+end
+
+
+function [Jx, Ju] =  linearize_dynamics(z_equi,u_equi,params)
+
+         % Get mass matrix
+    A = A_coffeeArm(z_equi,p);
+    
+
+%     u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
+    
+    % Get b = Q - V(q,qd) - G(q)
+    b = b_coffeeArm(z_equi,u_equi,p);
+    
+    % Solve for qdd.
+    qdd = A\(b);
+    dz = 0*z;
+    
+    % Form dz
+    dz(1:4) = z_equi(5:8);
+    dz(5:8) = qdd;
+%     side =1;
+
+%     tspan = [0 1];
+%     [~, zout] = slip_simulation_ode45_v2(z_equi,u_equi,params,side,tspan);
+    
+    
+    zout0 = zout(:,end);
+
+    %statef0
+    ep = 1e-6;
+    delStateMat = [0 0 1 0 0 0;0 0 0 1 0 0; 0 0 0 0 1 0]';
+    Jx = zeros(3,3);
+    Ju = zeros(3,3);
+
+    for i=1:3
+        z_dev = z_equi+ep*delStateMat(:,i);
+        
+        [~, zout] = slip_simulation_ode45_v2(z_dev,u_equi,params,side,tspan);  
+        zoutf = zout(:,end);
+        
+        Jx(:,i) = (zoutf(3:5) - zout0(3:5))/ep;
+    end
+
+
+    del_u_mat= eye(3);
+    del_u_mat = [del_u_mat;0 0 -1];
+%     del_u_mat(end,end)= -1; % change in spring stiffness during decompression phase = -1*change in spring stiffness at compression phase
+    
+%     ep_u = [ep;ep;ep*1e4;ep*1e4];
+    ep_u = [ep;ep;ep*1e4];
+    
+    for i=1:3
+        
+        u_dev = u_equi + del_u_mat(:,i)*ep_u(i);
+
+%         dynParams.tdParams = [newParams(1) newParams(2)];
+%         dynParams.heightThreshold = robotLegLength*cos(dynParams.tdParams(1));
+%         dynParams.L0 = sqrt(robotLegLength^2+robotHipDisp^2 +...
+%             2*robotLegLength*robotHipDisp*sin(dynParams.tdParams(1))*sin(dynParams.tdParams(2)));
+%         dynParams.k1 = (dynParams.k0 + newParams(3))*1e4;
+%         dynParams.k2 = (dynParams.k0 - newParams(3))*1e4;
+        [~, zout] = slip_simulation_ode45_v2(z_equi,u_dev,params,side,tspan);
+        zoutf = zout(:,end);
+        
+%         [T_out STATE_out FOOT_out tf statef EN_out stanceTime tdPos] = simulatePeriod(0,stateInit,dynParams);
+
+        Ju(:,i) = (zoutf(3:5) - zout0(3:5))/ep_u(i);
+    end
+
 end
