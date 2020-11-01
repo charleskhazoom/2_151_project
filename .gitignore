@@ -31,3 +31,4 @@
 *.out
 *.app
 *.m~
+MATLAB/linearize_dynamics_old.m

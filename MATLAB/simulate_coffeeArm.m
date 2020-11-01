@@ -32,17 +32,19 @@ function simulate_coffeeArm()
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
-    p_cup_initial = [0.1,0.85]';
+    p_cup_initial = [-0.8,0.85]';
     q0 = invKin_arm(p_cup_initial,p,[0,0,0,0]');
     z0 = [q0;0;0;0;0];
     
-    p_cup_final = [3,0.2]'; % need to specify orientation of last link in the world frame too!
+    p_cup_final = [1,0.2]'; % need to specify orientation of last link in the world frame too!
     qf = eval(invKin_arm(p_cup_final,p,q0));
     zf = [qf;0;0;0;0];
     
     z_out = zeros(8,num_step);
     z_out(:,1) = z0;
-    
+    %% tangant linearization of dynamics about final desired position
+    u_equi = Grav_arm(zf,p); % inputs at equilibrium = gravity
+    [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p);
     %% design lqr for feedback-linearized system
     A_fl = [zeros(4,4) eye(4,4);zeros(4,4)  zeros(4,4)];
     B_fl = [zeros(4,4);eye(4,4)];
@@ -58,14 +60,16 @@ function simulate_coffeeArm()
 %     MassMatrix = A_
     p_ctrl_fl.lqr_gain = K_fl;
     kr_q = -inv(C_fl(1:4,1:8)*inv(A_fl-B_fl*K_fl)*B_fl);
-    
     p_ctrl_fl.kr = [kr_q];%-inv(C_fl*inv(A_fl-B_fl*K_fl)*B_fl); % scale the reference appropriately
 %     Kr = -inv(C*inv(A-B*K)*B);
+
     p_ctrl_fl.zf = zf; % desired final state
     %%
     
     for i=1:num_step-1
-        u_out(:,i) = control_law_feedback_linearization(tspan(i),z_out(:,i),p_estim,p_ctrl_fl);
+        % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
+
+        u_out(:,i) = control_law_feedback_linearization(tspan(i),z_out(:,i),p_estim,p_ctrl_fl); 
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p, p_traj);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
@@ -78,7 +82,11 @@ function simulate_coffeeArm()
     E = energy_coffeeArm(z_out,p);
     figure(1); clf
     plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)');
-    
+    %% plot controls
+    figure(2);
+    plot(tspan(1:end-1),u_out);
+    xlabel('Time (s)'); ylabel('Inputs');
+
     %% Compute foot position over time (havent look in depth)
     rE = zeros(2,length(tspan));
     vE = zeros(2,length(tspan));
@@ -87,7 +95,7 @@ function simulate_coffeeArm()
         vE(:,i) = velocity_endEffector(z_out(:,i),p);
     end
     
-    figure(2); clf;
+    figure(3); clf;
     plot(tspan,rE(1,:),'r','LineWidth',2)
     hold on
     plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
@@ -97,27 +105,27 @@ function simulate_coffeeArm()
     
     xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','x_d','y','y_d'});
 
-    figure(3); clf;
+    figure(4); clf;
     plot(tspan,vE(1,:),'r','LineWidth',2)
     hold on
     plot(tspan,vE(2,:),'b','LineWidth',2)
     
     xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
     
-    figure(4)
+    figure(5)
     plot(tspan,z_out(1:2,:)*180/pi)
     legend('q1','q2');
     xlabel('Time (s)');
     ylabel('Angle (deg)');
     
-    figure(5)
+    figure(6)
     plot(tspan,z_out(3:4,:)*180/pi)
     legend('q1dot','q2dot');
     xlabel('Time (s)');
     ylabel('Angular Velocity (deg/sec)');
     
     %% Animate Solution
-    figure(6); clf;
+    figure(7); clf;
     hold on
    
   
@@ -202,11 +210,7 @@ end
 function dz = dynamics(t,z,u,p,p_traj)
     % Get mass matrix
     A = A_coffeeArm(z,p);
-    
-    % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
-%     u = control_law(t,z,p,p_traj);
-%     u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
-    
+     
     % Get b = Q - V(q,qd) - G(q)
     b = b_coffeeArm(z,u,p);
     
@@ -315,71 +319,30 @@ function animateSol(tspan, x, p)
 end
 
 
-function [Jx, Ju] =  linearize_dynamics(z_equi,u_equi,params)
-
-         % Get mass matrix
-    A = A_coffeeArm(z_equi,p);
+function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
+    n_states = length(z_equi);
+    n_inputs = length(u_equi);
+    t =0; % dummy assignation of t variable
+    dz_equi = dynamics(t,z_equi,u_equi,p,[]);
+%     zout0 = zout(:,end);
     
-
-%     u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
-    
-    % Get b = Q - V(q,qd) - G(q)
-    b = b_coffeeArm(z_equi,u_equi,p);
-    
-    % Solve for qdd.
-    qdd = A\(b);
-    dz = 0*z;
-    
-    % Form dz
-    dz(1:4) = z_equi(5:8);
-    dz(5:8) = qdd;
-%     side =1;
-
-%     tspan = [0 1];
-%     [~, zout] = slip_simulation_ode45_v2(z_equi,u_equi,params,side,tspan);
-    
-    
-    zout0 = zout(:,end);
-
     %statef0
     ep = 1e-6;
-    delStateMat = [0 0 1 0 0 0;0 0 0 1 0 0; 0 0 0 0 1 0]';
-    Jx = zeros(3,3);
-    Ju = zeros(3,3);
+    delStateMat = eye(n_states);
+    A_lin = zeros(n_states,n_states);
+    B_lin = zeros(n_states,n_inputs);
 
-    for i=1:3
-        z_dev = z_equi+ep*delStateMat(:,i);
-        
-        [~, zout] = slip_simulation_ode45_v2(z_dev,u_equi,params,side,tspan);  
-        zoutf = zout(:,end);
-        
-        Jx(:,i) = (zoutf(3:5) - zout0(3:5))/ep;
+    for i=1:n_states
+        z_dev = z_equi + ep*delStateMat(:,i);
+        dz_dev = dynamics(t,z_dev,u_equi,p,[]);
+        A_lin(:,i) = (dz_dev - dz_equi)/ep;
     end
 
 
-    del_u_mat= eye(3);
-    del_u_mat = [del_u_mat;0 0 -1];
-%     del_u_mat(end,end)= -1; % change in spring stiffness during decompression phase = -1*change in spring stiffness at compression phase
-    
-%     ep_u = [ep;ep;ep*1e4;ep*1e4];
-    ep_u = [ep;ep;ep*1e4];
-    
-    for i=1:3
-        
-        u_dev = u_equi + del_u_mat(:,i)*ep_u(i);
-
-%         dynParams.tdParams = [newParams(1) newParams(2)];
-%         dynParams.heightThreshold = robotLegLength*cos(dynParams.tdParams(1));
-%         dynParams.L0 = sqrt(robotLegLength^2+robotHipDisp^2 +...
-%             2*robotLegLength*robotHipDisp*sin(dynParams.tdParams(1))*sin(dynParams.tdParams(2)));
-%         dynParams.k1 = (dynParams.k0 + newParams(3))*1e4;
-%         dynParams.k2 = (dynParams.k0 - newParams(3))*1e4;
-        [~, zout] = slip_simulation_ode45_v2(z_equi,u_dev,params,side,tspan);
-        zoutf = zout(:,end);
-        
-%         [T_out STATE_out FOOT_out tf statef EN_out stanceTime tdPos] = simulatePeriod(0,stateInit,dynParams);
-
-        Ju(:,i) = (zoutf(3:5) - zout0(3:5))/ep_u(i);
+    del_u_mat= eye(n_inputs);
+    for i=1:n_inputs
+        u_dev = u_equi+ep*del_u_mat(:,i);
+        dz_dev = dynamics(t,z_equi,u_dev,p,[]);
+        B_lin(:,i) = (dz_dev - dz_equi)/ep;
     end
-
 end
