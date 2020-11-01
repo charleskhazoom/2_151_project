@@ -28,7 +28,7 @@ function simulate_coffeeArm()
     
     %% Perform Dynamic simulation
     dt = 0.001;
-    tf = 10; %May have to change if 10 second not enough to complete task
+    tf = 2; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
@@ -36,18 +36,38 @@ function simulate_coffeeArm()
     q0 = invKin_arm(p_cup_initial,p,[0,0,0,0]');
     z0 = [q0;0;0;0;0];
     
-    p_cup_final = [-0.1,0.7]';
-    qf = invKin_arm(p_cup_final,p,q0);
+    p_cup_final = [3,0.2]'; % need to specify orientation of last link in the world frame too!
+    qf = eval(invKin_arm(p_cup_final,p,q0));
     zf = [qf;0;0;0;0];
     
     z_out = zeros(8,num_step);
     z_out(:,1) = z0;
     
+    %% design lqr for feedback-linearized system
+    A_fl = [zeros(4,4) eye(4,4);zeros(4,4)  zeros(4,4)];
+    B_fl = [zeros(4,4);eye(4,4)];
+    C_fl = eye(8,8); % full state feedback for identity matrix
+    rank(ctrb(A_fl,B_fl)) % full rank
+    
+    Q_fl = [eye(8,8)]*1000;
+    R_fl = [0.001 0 0 0 ;...
+            0 0.001 0 0;...
+            0 0 0.001 0;...
+            0 0 0     0.1];
+    K_fl = lqr(A_fl,B_fl,Q_fl,R_fl);
+%     MassMatrix = A_
+    p_ctrl_fl.lqr_gain = K_fl;
+    kr_q = -inv(C_fl(1:4,1:8)*inv(A_fl-B_fl*K_fl)*B_fl);
+    
+    p_ctrl_fl.kr = [kr_q];%-inv(C_fl*inv(A_fl-B_fl*K_fl)*B_fl); % scale the reference appropriately
+%     Kr = -inv(C*inv(A-B*K)*B);
+    p_ctrl_fl.zf = zf; % desired final state
+    %%
+    
     for i=1:num_step-1
-        dz = dynamics(tspan(i), z_out(:,i), p, p_traj);
+        dz = dynamics(tspan(i), z_out(:,i), p, p_traj,p_estim,p_ctrl_fl);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
-        
         
         % Position update
         z_out(1:4,i+1) = z_out(1:4,i) + z_out(5:8,i+1)*dt;
@@ -155,52 +175,36 @@ u = [0; 0; 0; 0];
 %     % Map to joint torques  
 %     %tau = J' * f;
 end
-function u = control_law_feedback_linearization(t, z, p)
-u = [0; 0; 0; 0];
-%     % Controller gains, Update as necessary for Problem 1
-     
+function u = control_law_feedback_linearization(t, z, p,p_ctrl_fl)
+      u = [0; 0; 0; 0];
+%   unpack controller parameters
+    
+    K_lqr = p_ctrl_fl.lqr_gain;
+    kr = p_ctrl_fl.kr; % scale the reference appropriately
+    zf = p_ctrl_fl.zf; % desired final state
 %     % Actual position and velocity 
 %     
 %     % Quesiton 1.1
 %     J  = jacobian_foot(z,p);
-%     Mass = A_coffeeArm(z,p);
+    M = A_coffeeArm(z,p);
     V = Corr_arm(z,p); 
 %     jdot = jacobian_dot_endEffector(z,p);
     G = Grav_arm(z,p);
     
-    w = 0; % do lqr here 
-    u = V+G + w;
-%     
-%     A = inv(J*inv(Mass)*J');
-%     mu = A*J*inv(Mass)*V-A*jdot*z(3:4);
-%     % 1.4 Improper estimation of mu
-%     %random= 1+((rand(1)*2-2)*.2); %+- 20%
-%     %mu = random*(A*J*inv(Mass)*V-A*jdot*z(3:4));
-%     
-%     rho = A*J*inv(Mass)*G;
-%     
-%     f  = [aEd(1)+ K_x * (rEd(1) - rE(1) ) + D_x * (vEd(1) - vE(1) ) ;
-%           aEd(2)+ K_y * (rEd(2) - rE(2) ) + D_y * (vEd(2) - vE(2) ) ];
-%    
-%     tau = J' *(A*f + mu + rho);
-%     
-%     % Compute virtual foce for Question 1.4 and 1.5
-%     %f  = [K_x * (rEd(1) - rE(1) ) + D_x * ( - vE(1) ) ;
-%     %      K_y * (rEd(2) - rE(2) ) + D_y * ( - vE(2) ) ];
-%     
-%     %% Task-space compensation and feed forward for Question 1.8
-% 
-%     % Map to joint torques  
-%     %tau = J' * f;
+    r  = zf(1:4);% desired new equilibrium point
+%     kr = % gain to 
+    w = kr*r-K_lqr*z; % do lqr here 
+    u = V+G + M*w;
+
 end
 
-function dz = dynamics(t,z,p,p_traj,p_estim)
+function dz = dynamics(t,z,p,p_traj,p_estim,p_ctrl)
     % Get mass matrix
     A = A_coffeeArm(z,p);
     
     % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
 %     u = control_law(t,z,p,p_traj);
-    u = control_law_feedback_linearization(t,z,p_estim);
+    u = control_law_feedback_linearization(t,z,p_estim,p_ctrl);
     
     % Get b = Q - V(q,qd) - G(q)
     b = b_coffeeArm(z,u,p);
