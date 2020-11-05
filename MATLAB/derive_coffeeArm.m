@@ -127,8 +127,8 @@ dJ= reshape( ddt(J(:)) , size(J) );
 z  = [q ; dq];
 r4 = r4(1:2);
 dr4= dr4(1:2);
-J  = J(1:2,1:2);
-dJ = dJ(1:2,1:2);
+J  = J(1:2,1:4);
+dJ = dJ(1:2,1:4);
 %%
 matlabFunction(A,'file',['A_' name],'vars',{z p});
 matlabFunction(b,'file',['b_' name],'vars',{z u p});
