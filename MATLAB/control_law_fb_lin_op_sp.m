@@ -4,6 +4,7 @@ function u = control_law_fb_lin_op_sp(t, z, p,p_ctrl)
     kr = p_ctrl.kr; % scale the reference appropriately
     r = p_ctrl.r; % desired final state
 
+    
 
     J = jacobian_endEffector(z,p);
     dJ = jacobian_dot_endEffector(z,p);
