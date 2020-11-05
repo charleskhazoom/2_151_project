@@ -28,7 +28,7 @@ function simulate_coffeeArm()
     
     %% Perform Dynamic simulation
     dt = 0.001;
-    tf = 4; %May have to change if 10 second not enough to complete task
+    tf = 10; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
@@ -45,32 +45,25 @@ function simulate_coffeeArm()
     %% tangant linearization of dynamics about final desired position
     u_equi = Grav_arm(zf,p); % inputs at equilibrium = gravity
     [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p);
-    %% design lqr for feedback-linearized system
-    A_fl = [zeros(4,4) eye(4,4);zeros(4,4)  zeros(4,4)];
-    B_fl = [zeros(4,4);eye(4,4)];
-    C_fl = eye(8,8); % full state feedback for identity matrix
-    rank(ctrb(A_fl,B_fl)) % full rank
-    
-    Q_fl = [eye(8,8)]*100;
-    Q_fl(2,2) = 1000;
-    R_fl = [0.001 0 0 0 ;...
-            0 0.001 0 0;...
-            0 0 0.001 0;...
-            0 0 0     0.1];
-    K_fl = lqr(A_fl,B_fl,Q_fl,R_fl);
-%     MassMatrix = A_
-    p_ctrl_fl.lqr_gain = K_fl;
-    kr_q = -inv(C_fl(1:4,1:8)*inv(A_fl-B_fl*K_fl)*B_fl);
-    p_ctrl_fl.kr = [kr_q];%-inv(C_fl*inv(A_fl-B_fl*K_fl)*B_fl); % scale the reference appropriately
-%     Kr = -inv(C*inv(A-B*K)*B);
+    %% choose control law
+%     ctrl_law_str = 'joint_space_fb_lin';
+    ctrl_law_str = 'operational_space_fb_lin';
 
-    p_ctrl_fl.zf = zf; % desired final state
+control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
+
+% to design a new control law:
+% 1) create function in external file which takes as argument
+% t,z,u,p,p_ctrl (see example control_law_feedback_linearization.m)
+% 2) edit get_controller, where the design parameters are created and
+% passed to the anonymous function which is the output of control law.
     %%
     
     for i=1:num_step-1
         % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
-
-        u_out(:,i) = control_law_feedback_linearization(tspan(i),z_out(:,i),p_estim,p_ctrl_fl); 
+        p_ctrl_fl_op_sp =1;% dummy assignation for now;
+%         u_out(:,i) = control_law_fb_lin_op_sp(tspan(i), z_out(:,i), p,p_ctrl_fl_op_sp);
+        
+        u_out(:,i) = control_law(tspan(i),z_out(:,i));
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p, p_traj);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
@@ -138,8 +131,8 @@ function simulate_coffeeArm()
     animateSol(tspan, z_out,p);
 end
 
-function u = control_law(t, z, p, p_traj)
-u = [0; 0; 0; 0];
+% function u = control_law(t, z, p, p_traj)
+% u = [0; 0; 0; 0];
 %     % Controller gains, Update as necessary for Problem 1
 %     K_x = 150.; % Spring stiffness X
 %     K_y = 150.; % Spring stiffness Y
@@ -184,29 +177,10 @@ u = [0; 0; 0; 0];
 % 
 %     % Map to joint torques  
 %     %tau = J' * f;
-end
-function u = control_law_feedback_linearization(t, z, p,p_ctrl_fl)
-      u = [0; 0; 0; 0];
-%   unpack controller parameters
-    
-    K_lqr = p_ctrl_fl.lqr_gain;
-    kr = p_ctrl_fl.kr; % scale the reference appropriately
-    zf = p_ctrl_fl.zf; % desired final state
-%     % Actual position and velocity 
-%     
-%     % Quesiton 1.1
-%     J  = jacobian_foot(z,p);
-    M = A_coffeeArm(z,p);
-    V = Corr_arm(z,p); 
-%     jdot = jacobian_dot_endEffector(z,p);
-    G = Grav_arm(z,p);
-    
-    r  = zf(1:4);% desired new equilibrium point
-%     kr = % gain to 
-    w = kr*r-K_lqr*z; % do lqr here 
-    u = V+G + M*w;
+% end
 
-end
+
+
 
 function dz = dynamics(t,z,u,p,p_traj)
     % Get mass matrix
@@ -224,39 +198,39 @@ function dz = dynamics(t,z,u,p,p_traj)
     dz(5:8) = qdd;
 end
 
-function qdot = discrete_impact_contact(z,p, rest_coeff, fric_coeff, yC)
-    rE = position_endEffector(z,p);
-    C = rE(2) - yC;
-    vE = velocity_endEffector(z,p);
-    Cdot = vE(2);
-    J = jacobian_foot(z,p);
-    Mass = A_coffeeArm(z,p);
-    A = inv(J*inv(Mass)*J');
-    
-    if C<0 & Cdot<0
-        Fcz = [0 0; A(2,:)]*(-rest_coeff*Cdot - [0 0; J(2,:)]*z(3:4));
-        qdot = z(3:4) + inv(Mass)*J(2,:)'.*Fcz; %matrix size?
-        Fcx = [A(1,:); 0 0]*(0-[J(1,:); 0 0]*z(3:4)); 
-        if abs(Fcx(1)) > abs(fric_coeff*Fcz(2))
-            Fcx(1) = -fric_coeff*Fcz(2);
-        end
-        qdot = qdot + inv(Mass)*J(1,:)'.*Fcx;
-    else
-        qdot = z(3:4);
-    end
-end
-
-function qdot = joint_limit_constraint(z,p)
-    C = z(1);
-    Cdot = z(3);
-    %Mass = A_coffeeArm(z,p);
-    
-    if C<-50/360*2*pi && Cdot<0
-        qdot = z(3) + (-.1*Cdot-.1*C);
-    else
-        qdot = z(3);
-    end
-end
+% function qdot = discrete_impact_contact(z,p, rest_coeff, fric_coeff, yC)
+%     rE = position_endEffector(z,p);
+%     C = rE(2) - yC;
+%     vE = velocity_endEffector(z,p);
+%     Cdot = vE(2);
+%     J = jacobian_foot(z,p);
+%     Mass = A_coffeeArm(z,p);
+%     A = inv(J*inv(Mass)*J');
+%     
+%     if C<0 & Cdot<0
+%         Fcz = [0 0; A(2,:)]*(-rest_coeff*Cdot - [0 0; J(2,:)]*z(3:4));
+%         qdot = z(3:4) + inv(Mass)*J(2,:)'.*Fcz; %matrix size?
+%         Fcx = [A(1,:); 0 0]*(0-[J(1,:); 0 0]*z(3:4)); 
+%         if abs(Fcx(1)) > abs(fric_coeff*Fcz(2))
+%             Fcx(1) = -fric_coeff*Fcz(2);
+%         end
+%         qdot = qdot + inv(Mass)*J(1,:)'.*Fcx;
+%     else
+%         qdot = z(3:4);
+%     end
+% end
+% 
+% function qdot = joint_limit_constraint(z,p)
+%     C = z(1);
+%     Cdot = z(3);
+%     %Mass = A_coffeeArm(z,p);
+%     
+%     if C<-50/360*2*pi && Cdot<0
+%         qdot = z(3) + (-.1*Cdot-.1*C);
+%     else
+%         qdot = z(3);
+%     end
+% end
 
 function animateSol(tspan, x, p)
     % Prepare plot handles
@@ -347,3 +321,4 @@ function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
         B_lin(:,i) = (dz_dev - dz_equi)/ep;
     end
 end
+
