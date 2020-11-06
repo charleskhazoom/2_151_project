@@ -9,7 +9,7 @@ function u = control_law_feedback_linearization(t, z, p,p_ctrl_fl)
 %     
 %     % Quesiton 1.1
 %     J  = jacobian_foot(z,p);
-    M = A_coffeeArm(z,p);
+    M = A_arm(z,p);
     V = Corr_arm(z,p); 
 %     jdot = jacobian_dot_endEffector(z,p);
     G = Grav_arm(z,p);

@@ -14,7 +14,7 @@ dq  = [dx; dth1 ; dth2; dth3];   % first time derivatives
 ddq = [ddx; ddth1; ddth2; ddth3];  % second time derivatives
 u   = [F_x; tau1 ; tau2; tau3];     % controls
 
-p   = [m_cart m2 m3 m4 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
+p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
 
 I1 = m1*l_1^2/12;
 I2 = m2*l_2^2/12;
@@ -37,6 +37,7 @@ ddt = @(r) jacobian(r,[q;dq])*[dq;ddq]; % a handy anonymous function for taking 
 rCart = x*ihat;
 r1 = rCart + l_1 * e1hat;
 r2 = r1  + l_2 * e2hat;
+r3 = r2;
 r3_R = r2 + l_3/2 * e3hat;
 r3_L = r2 - l_3/2 * e3hat;
 

@@ -1,25 +1,25 @@
-function simulate_coffeeArm()
+function simulate_arm()
     clear; clc
     %% Define fixed paramters
-    m1 =50 ;         
-    m2 =5; 
-    m3 =5;            
-    m4 =5;
-    h_1 = 6*0.0254;      
+    m_cart =50 ;         
+    m1 =5; 
+    m2 =5;            
+    m3 =5;
+    h_cart = 6*0.0254;      
+    l_cart = 12*0.0254;
     l_1 = 12*0.0254;
     l_2 = 12*0.0254;
     l_3 = 12*0.0254;
-    l_4 = 12*0.0254;
     g = 9.81;    
 
     %% Parameter vector (real system)
-    p   = [m1 m2 m3 m4 h_1 l_1 l_2 l_3 l_4 g]';        % parameters
+    p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
     %% Parameter vector (estimated system)
 
     p_estim = p; % e
     p_estim(1:4)=p_estim(1:4)*1; % assume all masses are overestimated by some percentage
-    %% Simulation Parameters Set 2 -- Operational Space Control
     
+    %% Simulation Parameters Set 2 -- Operational Space Control
     p_traj.omega = 3;
     p_traj.x_0   = 0;
     p_traj.y_0   = -.125;
@@ -73,7 +73,7 @@ control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be
     end
     
     %% Compute Energy (shouldnt need changing)
-    E = energy_coffeeArm(z_out,p);
+    E = energy_arm(z_out,p);
     figure(1); clf
     plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)');
     %% plot controls
@@ -184,10 +184,10 @@ end
 
 function dz = dynamics(t,z,u,p,p_traj)
     % Get mass matrix
-    A = A_coffeeArm(z,p);
+    A = A_arm(z,p);
      
     % Get b = Q - V(q,qd) - G(q)
-    b = b_coffeeArm(z,u,p);
+    b = b_arm(z,u,p);
     
     % Solve for qdd.
     qdd = A\(b);
@@ -259,7 +259,7 @@ function animateSol(tspan, x, p)
         end
         t = tspan(i);
         z = x(:,i); 
-        keypoints = keypoints_coffeeArm(z,p);
+        keypoints = keypoints_arm(z,p);
 
         rA = keypoints(:,1); % center of mass (which is at 0) of cart
         rB = keypoints(:,2); % where link 1 and 2 meet

@@ -9,7 +9,7 @@ function u = control_law_fb_lin_op_sp(t, z, p,p_ctrl)
     J = jacobian_endEffector(z,p);
     dJ = jacobian_dot_endEffector(z,p);
     
-    M = A_coffeeArm(z,p);
+    M = A_arm(z,p);
     V = Corr_arm(z,p); 
     G = Grav_arm(z,p);
     
