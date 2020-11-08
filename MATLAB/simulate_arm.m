@@ -82,9 +82,9 @@ function simulate_arm()
         % Ball Simulation
         theta=z_out(2,i)+z_out(3,i)-90/180*pi+z_out(4,i);
         ddtheta =dz_out(6,i)+dz_out(7,i)+dz_out(8,i);
-        accel = acceleration_endEffector([z_out(:,i);dz_out(5:8,i)],p);
-        a_x_plate = accel(1)*cos(-theta)-accel(2)*sin(-theta);
-        a_y_plate = accel(1)*sin(-theta)+accel(2)*cos(-theta);
+        accel(:,i) = acceleration_endEffector([z_out(:,i);dz_out(5:8,i)],p);
+        a_x_plate = accel(1,i)*cos(-theta)-accel(2,i)*sin(-theta);
+        a_y_plate = accel(1,i)*sin(-theta)+accel(2,i)*cos(-theta);
         
         Normal = m_ball*g*cos(-theta)+ddtheta*I_ball*ball_alongPlate(1,i)+m_ball*a_y_plate;
         if(abs(u*Normal)>abs(m_ball*g*sin(-theta)))
@@ -166,6 +166,13 @@ function simulate_arm()
     xlabel('Time (s)');
     ylabel('[m][m/s][m/s^2]');
     title('Ball along plate');
+    
+    figure(10)
+    plot(tspan,accel(1:2,:));
+    legend('x','y');
+    xlabel('Time (s)');
+    ylabel('[m/s^2]');
+    title('accleration of plate world frame');
     
     %% Animate Solution
     figure(7); clf;
