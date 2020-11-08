@@ -11,7 +11,10 @@ function simulate_arm()
     l_2 = 12*0.0254;
     l_3 = 12*0.0254;
     g = 9.81;    
-
+    
+    m_ball = .05;
+    I_ball = 1; %placeholder, not sure if ball or ball and plate
+    u=.5;
     %% Parameter vector (real system)
     p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
     %% Parameter vector (estimated system)
@@ -25,8 +28,7 @@ function simulate_arm()
     p_traj.y_0   = -.125;
     p_traj.r     = 0.025;
     
-    
-    %% Perform Dynamic simulation
+    %% Setup Dynamic simulation
     dt = 0.001;
     tf = 10; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
@@ -42,14 +44,19 @@ function simulate_arm()
     
     z_out = zeros(8,num_step);
     z_out(:,1) = z0;
-    %% tangant linearization of dynamics about final desired position
+    
+    ball_alongPlate = zeros(3,num_step);
+    ball_alongPlate(:,1) = [0;0;0];
+    
+    %% tangent linearization of dynamics about final desired position
     u_equi = Grav_arm(zf,p); % inputs at equilibrium = gravity
     [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p);
+    
     %% choose control law
 %     ctrl_law_str = 'joint_space_fb_lin';
     ctrl_law_str = 'operational_space_fb_lin';
 
-control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
+    control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -58,7 +65,7 @@ control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be
 % passed to the anonymous function which is the output of control law.
     %%
     
-    for i=1:num_step-1
+    for i=1:num_step
         % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
         p_ctrl_fl_op_sp =1;% dummy assignation for now;
 %         u_out(:,i) = control_law_fb_lin_op_sp(tspan(i), z_out(:,i), p,p_ctrl_fl_op_sp);
@@ -67,21 +74,45 @@ control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p, p_traj);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
+        dz_out(:,i)=dz;
         
         % Position update
         z_out(1:4,i+1) = z_out(1:4,i) + z_out(5:8,i+1)*dt;
+        
+        % Ball Simulation
+        theta=z_out(2,i)+z_out(3,i)-90/180*pi+z_out(4,i);
+        ddtheta =dz_out(6,i)+dz_out(7,i)+dz_out(8,i);
+        accel = acceleration_endEffector([z_out(:,i);dz_out(5:8,i)],p);
+        a_x_plate = accel(1)*cos(-theta)-accel(2)*sin(-theta);
+        a_y_plate = accel(1)*sin(-theta)+accel(2)*cos(-theta);
+        
+        Normal = m_ball*g*cos(-theta)+ddtheta*I_ball*ball_alongPlate(1,i)+m_ball*a_y_plate;
+        if(abs(u*Normal)>abs(m_ball*g*sin(-theta)))
+            friction=m_ball*g*sin(-theta);
+        else
+            friction=u*Normal;
+        end
+        a_b_plate = m_ball*g*sin(-theta)-friction-m_ball*a_x_plate;
+        
+        ball_alongPlate(3,i+1)=a_b_plate;
+        ball_alongPlate(2,i+1)=ball_alongPlate(2,i)+a_b_plate*dt;
+        ball_alongPlate(1,i+1)=ball_alongPlate(1,i)+ball_alongPlate(2,i+1)*dt;
+
     end
+    z_out=z_out(:,1:end-1);
+    ball_alongPlate=ball_alongPlate(:,1:end-1);
     
-    %% Compute Energy (shouldnt need changing)
+    %% plot Energy
     E = energy_arm(z_out,p);
     figure(1); clf
-    plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)');
+    %plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)'); title('Energy Over Time');
     %% plot controls
     figure(2);
-    plot(tspan(1:end-1),u_out);
+    plot(tspan,u_out);
     xlabel('Time (s)'); ylabel('Inputs');
+    legend('Force Cart','Torque Joint1', 'Torque Joint2', 'Torque Joint3');
 
-    %% Compute foot position over time (havent look in depth)
+    %% plot results
     rE = zeros(2,length(tspan));
     vE = zeros(2,length(tspan));
     for i = 1:length(tspan)
@@ -95,28 +126,46 @@ control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be
     plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
     plot(tspan,rE(2,:),'b','LineWidth',2)
     plot(tspan,p_traj.y_0 + p_traj.r * sin(p_traj.omega*tspan) ,'b--');
-    
-    
     xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','x_d','y','y_d'});
+    title('End Effector position vs desired');
 
     figure(4); clf;
     plot(tspan,vE(1,:),'r','LineWidth',2)
     hold on
     plot(tspan,vE(2,:),'b','LineWidth',2)
-    
     xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
-    
+    title('End Effector velocity vs desired');
+
     figure(5)
-    plot(tspan,z_out(1:2,:)*180/pi)
-    legend('q1','q2');
+    plot(tspan,z_out(2:4,:)*180/pi)
+    legend('q1','q2','q2');
     xlabel('Time (s)');
     ylabel('Angle (deg)');
+    title('Joint Angles over trajectory');
     
     figure(6)
-    plot(tspan,z_out(3:4,:)*180/pi)
-    legend('q1dot','q2dot');
+    plot(tspan,z_out(6:8,:)*180/pi)
+    legend('q1dot','q2dot','q3dot');
     xlabel('Time (s)');
     ylabel('Angular Velocity (deg/sec)');
+    title('Joint Velocities over trajectory');
+    
+    figure(8)
+    theta=      180/pi*z_out(2,:)+180/pi*z_out(3,:)-90*ones(1,length(z_out))+180/pi*z_out(4,:);
+    thetadot=   180/pi*dz_out(2,:)+180/pi*dz_out(3,:)+180/pi*dz_out(4,:);
+    thetadotdot=180/pi*dz_out(6,:)+180/pi*dz_out(7,:)+180/pi*dz_out(8,:); 
+    plot(tspan,theta,'b',tspan,thetadot,'g',tspan,thetadotdot,'r')
+    legend('angle','rotation','acceleration');
+    xlabel('Time (s)');
+    ylabel('[deg][deg/sec][deg/sec^2]');
+    title('Plate in world frame');
+    
+    figure(9)
+    plot(tspan,ball_alongPlate(1:3,:));
+    legend('x','xdot','xdotdot');
+    xlabel('Time (s)');
+    ylabel('[m][m/s][m/s^2]');
+    title('Ball along plate');
     
     %% Animate Solution
     figure(7); clf;
@@ -264,7 +313,8 @@ function animateSol(tspan, x, p)
         rA = keypoints(:,1); % center of mass (which is at 0) of cart
         rB = keypoints(:,2); % where link 1 and 2 meet
         rC = keypoints(:,3); % where link 2 and 3 meet
-        rD = keypoints(:,4); % where link 3 end
+        rD = keypoints(:,4); % where right side of plate(3)
+        rE = keypoints(:,5); % where Left side of plate(3)
 
         set(h_title,'String',  sprintf('t=%.2f',t) ); % update title
         
@@ -286,8 +336,8 @@ function animateSol(tspan, x, p)
         set(h_link2,'XData',[rB(1) rC(1)]);
         set(h_link2,'YData',[rB(2) rC(2)]);
         
-        set(h_link3,'XData',[rC(1) rD(1)]);
-        set(h_link3,'YData',[rC(2) rD(2)]);
+        set(h_link3,'XData',[rE(1) rD(1)]);
+        set(h_link3,'YData',[rE(2) rD(2)]);
 
         pause(.01)
     end

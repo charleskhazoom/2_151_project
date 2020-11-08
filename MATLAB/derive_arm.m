@@ -9,7 +9,7 @@ syms F_x tau1 tau2 tau3 real
 %syms Ir N real % can add in rotor inertia and gearing later
 
 % Group them
-q   = [x; th1  ; th2 ; th3];      % generalized coordinates
+q   = [x; th1  ; th2 ; th3];      % generalized coordinates: angles defined to world frame
 dq  = [dx; dth1 ; dth2; dth3];   % first time derivatives
 ddq = [ddx; ddth1; ddth2; ddth3];  % second time derivatives
 u   = [F_x; tau1 ; tau2; tau3];     % controls
@@ -50,6 +50,7 @@ drCart = ddt(rCart);
 dr1 = ddt(r1);
 dr2 = ddt(r2);
 dr3 = ddt(r3);
+ddr3 = ddt(dr3);
 
 dr_m1 = ddt(r_m1);
 dr_m2 = ddt(r_m2);
@@ -116,6 +117,8 @@ dJ= reshape( ddt(J(:)) , size(J) );
 z  = [q ; dq];
 r3 = r3(1:2);
 dr3= dr3(1:2);
+ddr3= ddr3(1:2);
+z2 = [q ; dq ; ddq];
 J  = J(1:2,1:4);
 dJ = dJ(1:2,1:4);
 %%
@@ -124,11 +127,12 @@ matlabFunction(b,'file',['b_' name],'vars',{z u p});
 matlabFunction(E,'file',['energy_' name],'vars',{z p});
 matlabFunction(r3,'file',['position_endEffector'],'vars',{z p});
 matlabFunction(dr3,'file',['velocity_endEffector'],'vars',{z p});
+matlabFunction(ddr3,'file',['acceleration_endEffector'],'vars',{z2 p});
 matlabFunction(J ,'file',['jacobian_endEffector'],'vars',{z p});
 matlabFunction(dJ ,'file',['jacobian_dot_endEffector'],'vars',{z p});
 
 matlabFunction(Grav_Joint_Sp ,'file', ['Grav_arm'] ,'vars',{z p});
-matlabFunction(Corr_Joint_Sp ,'file', ['Corr_arm']     ,'vars',{z p});
+matlabFunction(Corr_Joint_Sp ,'file', ['Corr_arm'] ,'vars',{z p});
 matlabFunction(keypoints,'file',['keypoints_' name],'vars',{z p});
 
 
