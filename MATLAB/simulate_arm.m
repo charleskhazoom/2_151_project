@@ -22,12 +22,7 @@ function simulate_arm()
     p_estim = p; % e
     p_estim(1:4)=p_estim(1:4)*1; % assume all masses are overestimated by some percentage
     
-    %% Simulation Parameters Set 2 -- Operational Space Control
-    p_traj.omega = 3;
-    p_traj.x_0   = 0;
-    p_traj.y_0   = -.125;
-    p_traj.r     = 0.025;
-    
+   
     %% Setup Dynamic simulation
     dt = 0.001;
     tf = 10; %May have to change if 10 second not enough to complete task
@@ -38,7 +33,7 @@ function simulate_arm()
     q0 = eval(invKin_arm(p_cup_initial,p,[0,0,0,0]'));
     z0 = [q0;0;0;0;0];
     
-    p_cup_final = [1,0.2]'; % need to specify orientation of last link in the world frame too!
+    p_cup_final = [1,0.5]'; % need to specify orientation of last link in the world frame too!
     qf = eval(invKin_arm(p_cup_final,p,q0));
     zf = [qf;0;0;0;0];
     
@@ -52,10 +47,10 @@ function simulate_arm()
     [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p);
     
     %% choose control law
-%     ctrl_law_str = 'joint_space_fb_lin';
-    ctrl_law_str = 'operational_space_fb_lin';
+    ctrl_law_str = 'joint_space_fb_lin';
+%     ctrl_law_str = 'operational_space_fb_lin';
 
-    control_law = get_controller(zf,p,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
+    control_law = get_controller(zf,p_estim,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -187,53 +182,6 @@ function simulate_arm()
     animateSol(tspan, z_out,p,ball_alongPlate,rE, theta);
 end
 
-% function u = control_law(t, z, p, p_traj)
-% u = [0; 0; 0; 0];
-%     % Controller gains, Update as necessary for Problem 1
-%     K_x = 150.; % Spring stiffness X
-%     K_y = 150.; % Spring stiffness Y
-%     D_x = 10.;  % Damping X
-%     D_y = 10.;  % Damping Y
-% 
-%     %will be useful if we make a reference trajectory
-% %     % Desired position of foot is a circle
-% %     omega_swing = p_traj.omega;
-% %     rEd = [p_traj.x_0 p_traj.y_0 0]' + ...
-% %             p_traj.r*[cos(omega_swing*t) sin(omega_swing*t) 0]';       
-%     
-%     % Actual position and velocity 
-%     rE = position_endEffector(z,p);
-%     vE = velocity_endEffector(z,p);
-%     
-%     % Quesiton 1.1
-%     J  = jacobian_foot(z,p);
-%     Mass = A_coffeeArm(z,p);
-%     V = Corr_arm(z,p); 
-%     jdot = jacobian_dot_endEffector(z,p);
-%     G = Grav_arm(z,p);
-%     
-%     A = inv(J*inv(Mass)*J');
-%     mu = A*J*inv(Mass)*V-A*jdot*z(3:4);
-%     % 1.4 Improper estimation of mu
-%     %random= 1+((rand(1)*2-2)*.2); %+- 20%
-%     %mu = random*(A*J*inv(Mass)*V-A*jdot*z(3:4));
-%     
-%     rho = A*J*inv(Mass)*G;
-%     
-%     f  = [aEd(1)+ K_x * (rEd(1) - rE(1) ) + D_x * (vEd(1) - vE(1) ) ;
-%           aEd(2)+ K_y * (rEd(2) - rE(2) ) + D_y * (vEd(2) - vE(2) ) ];
-%    
-%     tau = J' *(A*f + mu + rho);
-%     
-%     % Compute virtual foce for Question 1.4 and 1.5
-%     %f  = [K_x * (rEd(1) - rE(1) ) + D_x * ( - vE(1) ) ;
-%     %      K_y * (rEd(2) - rE(2) ) + D_y * ( - vE(2) ) ];
-%     
-%     %% Task-space compensation and feed forward for Question 1.8
-% 
-%     % Map to joint torques  
-%     %tau = J' * f;
-% end
 
 
 
@@ -254,39 +202,6 @@ function dz = dynamics(t,z,u,p,p_traj)
     dz(5:8) = qdd;
 end
 
-% function qdot = discrete_impact_contact(z,p, rest_coeff, fric_coeff, yC)
-%     rE = position_endEffector(z,p);
-%     C = rE(2) - yC;
-%     vE = velocity_endEffector(z,p);
-%     Cdot = vE(2);
-%     J = jacobian_foot(z,p);
-%     Mass = A_coffeeArm(z,p);
-%     A = inv(J*inv(Mass)*J');
-%     
-%     if C<0 & Cdot<0
-%         Fcz = [0 0; A(2,:)]*(-rest_coeff*Cdot - [0 0; J(2,:)]*z(3:4));
-%         qdot = z(3:4) + inv(Mass)*J(2,:)'.*Fcz; %matrix size?
-%         Fcx = [A(1,:); 0 0]*(0-[J(1,:); 0 0]*z(3:4)); 
-%         if abs(Fcx(1)) > abs(fric_coeff*Fcz(2))
-%             Fcx(1) = -fric_coeff*Fcz(2);
-%         end
-%         qdot = qdot + inv(Mass)*J(1,:)'.*Fcx;
-%     else
-%         qdot = z(3:4);
-%     end
-% end
-% 
-% function qdot = joint_limit_constraint(z,p)
-%     C = z(1);
-%     Cdot = z(3);
-%     %Mass = A_coffeeArm(z,p);
-%     
-%     if C<-50/360*2*pi && Cdot<0
-%         qdot = z(3) + (-.1*Cdot-.1*C);
-%     else
-%         qdot = z(3);
-%     end
-% end
 
 function animateSol(tspan, x, p, ballX,rEE, theta)
     % Prepare plot handles
