@@ -65,7 +65,7 @@ function simulate_arm()
 %         u_out(:,i) = control_law_fb_lin_op_sp(tspan(i), z_out(:,i), p,p_ctrl_fl_op_sp);
         
         u_out(:,i) = control_law(tspan(i),z_out(:,i));
-        dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p, p_traj);
+        dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
         dz_out(:,i)=dz;
@@ -117,9 +117,9 @@ function simulate_arm()
     figure(3); clf;
     plot(tspan,rE(1,:),'r','LineWidth',2)
     hold on
-    plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
+%     plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
     plot(tspan,rE(2,:),'b','LineWidth',2)
-    plot(tspan,p_traj.y_0 + p_traj.r * sin(p_traj.omega*tspan) ,'b--');
+%     plot(tspan,p_traj.y_0 + p_traj.r * sin(p_traj.omega*tspan) ,'b--');
     xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','x_d','y','y_d'});
     title('End Effector position vs desired');
 
@@ -173,20 +173,12 @@ function simulate_arm()
     figure(7); clf;
     hold on
    
-  
-    % Target traj
-    TH = 0:.1:2*pi;
-    plot( p_traj.x_0 + p_traj.r * cos(TH), ...
-          p_traj.y_0 + p_traj.r * sin(TH),'k--'); 
-    
     animateSol(tspan, z_out,p,ball_alongPlate,rE, theta);
 end
 
 
 
-
-
-function dz = dynamics(t,z,u,p,p_traj)
+function dz = dynamics(t,z,u,p)
     % Get mass matrix
     A = A_arm(z,p);
      
@@ -275,7 +267,7 @@ function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
     n_states = length(z_equi);
     n_inputs = length(u_equi);
     t =0; % dummy assignation of t variable
-    dz_equi = dynamics(t,z_equi,u_equi,p,[]);
+    dz_equi = dynamics(t,z_equi,u_equi,p);
 %     zout0 = zout(:,end);
     
     %statef0
@@ -286,7 +278,7 @@ function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
 
     for i=1:n_states
         z_dev = z_equi + ep*delStateMat(:,i);
-        dz_dev = dynamics(t,z_dev,u_equi,p,[]);
+        dz_dev = dynamics(t,z_dev,u_equi,p);
         A_lin(:,i) = (dz_dev - dz_equi)/ep;
     end
 
@@ -294,7 +286,7 @@ function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
     del_u_mat= eye(n_inputs);
     for i=1:n_inputs
         u_dev = u_equi+ep*del_u_mat(:,i);
-        dz_dev = dynamics(t,z_equi,u_dev,p,[]);
+        dz_dev = dynamics(t,z_equi,u_dev,p);
         B_lin(:,i) = (dz_dev - dz_equi)/ep;
     end
 end
