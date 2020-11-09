@@ -13,7 +13,7 @@ function simulate_arm()
     g = 9.81;    
     
     m_ball = .05;
-    I_ball = 1; %placeholder, not sure if ball or ball and plate
+    I_ball = .05; %placeholder, not sure if ball or ball and plate
     u=.5;
     %% Parameter vector (real system)
     p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
@@ -44,7 +44,6 @@ function simulate_arm()
     
     z_out = zeros(8,num_step);
     z_out(:,1) = z0;
-    
     ball_alongPlate = zeros(3,num_step);
     ball_alongPlate(:,1) = [0;0;0];
     
@@ -172,6 +171,7 @@ function simulate_arm()
     legend('x','y');
     xlabel('Time (s)');
     ylabel('[m/s^2]');
+    axis([0 tf -2 2]);
     title('accleration of plate world frame');
     
     %% Animate Solution
@@ -184,7 +184,7 @@ function simulate_arm()
     plot( p_traj.x_0 + p_traj.r * cos(TH), ...
           p_traj.y_0 + p_traj.r * sin(TH),'k--'); 
     
-    animateSol(tspan, z_out,p);
+    animateSol(tspan, z_out,p,ball_alongPlate,rE, theta);
 end
 
 % function u = control_law(t, z, p, p_traj)
@@ -288,7 +288,7 @@ end
 %     end
 % end
 
-function animateSol(tspan, x, p)
+function animateSol(tspan, x, p, ballX,rEE, theta)
     % Prepare plot handles
     hold on
     h_ground = plot(linspace(-5,5,100),-0.15*ones(1,100),'k','LineWidth',2);
@@ -299,7 +299,9 @@ function animateSol(tspan, x, p)
     h_link1 = plot([0],[0],'LineWidth',2);
     h_link2 = plot([0],[0],'LineWidth',2);
     h_link3 = plot([0],[0],'LineWidth',2);
-   
+    
+    ball= plot([0],[0],'LineWidth',2);
+    r=.1; %ball's radius is arbitrary
     
     xlabel('x'); ylabel('y');
     h_title = title('t=0.0s');
@@ -345,6 +347,9 @@ function animateSol(tspan, x, p)
         
         set(h_link3,'XData',[rE(1) rD(1)]);
         set(h_link3,'YData',[rE(2) rD(2)]);
+        
+        set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
+        set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
 
         pause(.01)
     end
