@@ -24,15 +24,15 @@ function simulate_arm()
    
     %% Setup Dynamic simulation
     dt = 0.001;
-    tf = 10; %May have to change if 10 second not enough to complete task
+    tf = .001; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
-    p_cup_initial = [-0.8,0.85]';
+    p_cup_initial = [-0.8,0.65]';
     q0 = eval(invKin_arm(p_cup_initial,p,[0,0,0,0]'));
     z0 = [q0;0;0;0;0];
     
-    p_cup_final = [1,.5]'; % need to specify orientation of last link in the world frame too!
+    p_cup_final = [.5,.1]'; % need to specify orientation of last link in the world frame too!
     qf = eval(invKin_arm(p_cup_final,p,q0));
     zf = [qf;0;0;0;0];
     
@@ -172,7 +172,7 @@ function simulate_arm()
     figure(7); clf;
     hold on
    
-    animateSol(tspan, z_out,p,ball_alongPlate,rE, theta);
+    animateSol(tspan, z_out,p,ball_alongPlate,rE, theta, p_cup_initial, p_cup_final);
 end
 
 
@@ -194,10 +194,10 @@ function dz = dynamics(t,z,u,p)
 end
 
 
-function animateSol(tspan, x, p, ballX,rEE, theta)
+function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
     % Prepare plot handles
     hold on
-    h_ground = plot(linspace(-5,5,100),-0.15*ones(1,100),'k','LineWidth',2);
+    h_ground = plot(linspace(-5,5,100),-3*.0254*ones(1,100),'k','LineWidth',2);
     h_carBase = plot([0],[0],'k','LineWidth',2);
     h_carTop = plot([0],[0],'k','LineWidth',2);
     h_carLSide = plot([0],[0],'k','LineWidth',2);
@@ -205,6 +205,9 @@ function animateSol(tspan, x, p, ballX,rEE, theta)
     h_link1 = plot([0],[0],'LineWidth',2);
     h_link2 = plot([0],[0],'LineWidth',2);
     h_link3 = plot([0],[0],'LineWidth',2);
+    
+    start = plot(start_pos(1),start_pos(2),'gx');
+    final = plot(final_pos(1),final_pos(2),'rx');
     
     ball= plot([0],[0],'LineWidth',2);
     r=.1; %ball's radius is arbitrary
