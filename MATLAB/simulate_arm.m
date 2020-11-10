@@ -24,16 +24,16 @@ function simulate_arm()
    
     %% Setup Dynamic simulation
     dt = 0.001;
-    tf = .001; %May have to change if 10 second not enough to complete task
+    tf = 10; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
     p_cup_initial = [-0.8,0.65]';
-    q0 = eval(invKin_arm(p_cup_initial,p,[0,0,0,0]'));
+    q0 = (invKin_arm(p_cup_initial,p,[0,0,0,0]'))
     z0 = [q0;0;0;0;0];
     
     p_cup_final = [.5,.1]'; % need to specify orientation of last link in the world frame too!
-    qf = eval(invKin_arm(p_cup_final,p,q0));
+    qf = eval(invKin_arm(p_cup_final,p,q0))
     zf = [qf;0;0;0;0];
     
     z_out = zeros(8,num_step);
