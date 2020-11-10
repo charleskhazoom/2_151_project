@@ -8,15 +8,15 @@ function config = invKin_arm(pose,p,guess)
     % config: [4 by 1] joint configuration for pose
     
     % Define variables for time, generalized coordinates + derivatives, controls, and parameters 
-    syms t x th1 th2 th3 real
-    q = [x th1 th2 th3]';
+    syms t th1 th2 real
+    q = [th1 th2]';
     
     % unpack parameters
     l_1 = p(7);
     l_2 = p(8);
     l_3 = p(9);
     
-    x = -1;
+    x = pose(1);
     th3 = 0;
     
     % Generate Vectors and Derivativess
@@ -26,7 +26,7 @@ function config = invKin_arm(pose,p,guess)
 
     e1hat =  cos(th1)*ihat + sin(th1)*jhat;
     e2hat =  cos(th1+th2)*ihat + sin(th1+th2)*jhat;
-    e3hat =  cos(th1+th2+th3)*ihat + sin(th1+th2+th3)*jhat;
+    e3hat =  cos(th1+th2+th3-pi/2)*ihat + sin(th1+th2+th3-pi/2)*jhat;
     
     rCart = x*ihat;
     r1 = rCart + l_1 * e1hat;
@@ -36,6 +36,8 @@ function config = invKin_arm(pose,p,guess)
     eqn_x = r3(1) == pose(1);
     eqn_y = r3(2) == pose(2);
     
-    soln = vpasolve([eqn_x eqn_y],[x th1 th2 th3],guess);
-    config = [soln.x soln.th1 soln.th2 soln.th3]';
+    soln = vpasolve([eqn_x eqn_y],[th1 th2],guess);
+    th3 = pi/2-soln.th1-soln.th2;
+    
+    config = [x soln.th1 soln.th2 th3]';
 end

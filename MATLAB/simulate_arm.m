@@ -23,17 +23,17 @@ function simulate_arm()
     
    
     %% Setup Dynamic simulation
-    dt = 0.001;
-    tf = 10; %May have to change if 10 second not enough to complete task
+    dt = 0.01;
+    tf = 5; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
-    p_cup_initial = [-0.8,0.65]';
-    q0 = (invKin_arm(p_cup_initial,p,[0,0,0,0]'))
+    p_cup_initial = [-0.8,0.5]';
+    q0 = invKin_arm(p_cup_initial,p,[0,0]')
     z0 = [q0;0;0;0;0];
     
-    p_cup_final = [.5,.1]'; % need to specify orientation of last link in the world frame too!
-    qf = eval(invKin_arm(p_cup_final,p,q0))
+    p_cup_final = [.5,.3]'; % need to specify orientation of last link in the world frame too!
+    qf = invKin_arm(p_cup_final,p,q0(2:3))
     zf = [qf;0;0;0;0];
     
     z_out = zeros(8,num_step);
@@ -63,7 +63,8 @@ function simulate_arm()
         p_ctrl_fl_op_sp =1;% dummy assignation for now;
 %         u_out(:,i) = control_law_fb_lin_op_sp(tspan(i), z_out(:,i), p,p_ctrl_fl_op_sp);
         
-        u_out(:,i) = control_law(tspan(i),z_out(:,i));
+        %u_out(:,i) = control_law(tspan(i),z_out(:,i));
+        u_out(:,i) = zeros(4,1);
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
@@ -95,84 +96,84 @@ function simulate_arm()
     z_out=z_out(:,1:end-1);
     ball_alongPlate=ball_alongPlate(:,1:end-1);
     
-    %% plot Energy
-    E = energy_arm(z_out,p);
-    figure(1); clf
-    %plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)'); title('Energy Over Time');
-    %% plot controls
-    figure(2);
-    plot(tspan,u_out);
-    xlabel('Time (s)'); ylabel('Inputs');
-    legend('Force Cart','Torque Joint1', 'Torque Joint2', 'Torque Joint3');
-
-    %% plot results
+%     %% plot Energy
+%     E = energy_arm(z_out,p);
+%     figure(1); clf
+%     plot(tspan,E);xlabel('Time (s)'); ylabel('Energy (J)'); title('Energy Over Time');
+%     %% plot controls
+%     figure(2);
+%     plot(tspan,u_out);
+%     xlabel('Time (s)'); ylabel('Inputs');
+%     legend('Force Cart','Torque Joint1', 'Torque Joint2', 'Torque Joint3');
+% 
+%     %% plot results
     rE = zeros(2,length(tspan));
     vE = zeros(2,length(tspan));
     for i = 1:length(tspan)
         rE(:,i) = position_endEffector(z_out(:,i),p);
         vE(:,i) = velocity_endEffector(z_out(:,i),p);
     end
-    
-    figure(3); clf;
-    plot(tspan,rE(1,:),'r','LineWidth',2)
-    hold on
-%     plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
-    plot(tspan,rE(2,:),'b','LineWidth',2)
-%     plot(tspan,p_traj.y_0 + p_traj.r * sin(p_traj.omega*tspan) ,'b--');
-    xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','x_d','y','y_d'});
-    title('End Effector position vs desired');
-
-    figure(4); clf;
-    plot(tspan,vE(1,:),'r','LineWidth',2)
-    hold on
-    plot(tspan,vE(2,:),'b','LineWidth',2)
-    xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
-    title('End Effector velocity vs desired');
-
-    figure(5)
-    plot(tspan,z_out(2:4,:)*180/pi)
-    legend('q1','q2','q2');
-    xlabel('Time (s)');
-    ylabel('Angle (deg)');
-    title('Joint Angles over trajectory');
-    
-    figure(6)
-    plot(tspan,z_out(6:8,:)*180/pi)
-    legend('q1dot','q2dot','q3dot');
-    xlabel('Time (s)');
-    ylabel('Angular Velocity (deg/sec)');
-    title('Joint Velocities over trajectory');
-    
-    figure(8)
-    theta=      180/pi*z_out(2,:)+180/pi*z_out(3,:)-90*ones(1,length(z_out))+180/pi*z_out(4,:);
-    thetadot=   180/pi*dz_out(2,:)+180/pi*dz_out(3,:)+180/pi*dz_out(4,:);
-    thetadotdot=180/pi*dz_out(6,:)+180/pi*dz_out(7,:)+180/pi*dz_out(8,:); 
-    plot(tspan,theta,'b',tspan,thetadot,'g',tspan,thetadotdot,'r')
-    legend('angle','rotation','acceleration');
-    xlabel('Time (s)');
-    ylabel('[deg][deg/sec][deg/sec^2]');
-    title('Plate in world frame');
-    
-    figure(9)
-    plot(tspan,ball_alongPlate(1:3,:));
-    legend('x','xdot','xdotdot');
-    xlabel('Time (s)');
-    ylabel('[m][m/s][m/s^2]');
-    title('Ball along plate');
-    
-    figure(10)
-    plot(tspan,accel(1:2,:));
-    legend('x','y');
-    xlabel('Time (s)');
-    ylabel('[m/s^2]');
-    axis([0 tf -2 2]);
-    title('accleration of plate world frame');
+%     
+%     figure(3); clf;
+%     plot(tspan,rE(1,:),'r','LineWidth',2)
+%     hold on
+% %     plot(tspan,p_traj.x_0 + p_traj.r * cos(p_traj.omega*tspan) ,'r--');
+%     plot(tspan,rE(2,:),'b','LineWidth',2)
+% %     plot(tspan,p_traj.y_0 + p_traj.r * sin(p_traj.omega*tspan) ,'b--');
+%     xlabel('Time (s)'); ylabel('Position (m)'); legend({'x','x_d','y','y_d'});
+%     title('End Effector position vs desired');
+% 
+%     figure(4); clf;
+%     plot(tspan,vE(1,:),'r','LineWidth',2)
+%     hold on
+%     plot(tspan,vE(2,:),'b','LineWidth',2)
+%     xlabel('Time (s)'); ylabel('Velocity (m)'); legend({'vel_x','vel_y'});
+%     title('End Effector velocity vs desired');
+% 
+%     figure(5)
+%     plot(tspan,z_out(2:4,:)*180/pi)
+%     legend('q1','q2','q2');
+%     xlabel('Time (s)');
+%     ylabel('Angle (deg)');
+%     title('Joint Angles over trajectory');
+%     
+%     figure(6)
+%     plot(tspan,z_out(6:8,:)*180/pi)
+%     legend('q1dot','q2dot','q3dot');
+%     xlabel('Time (s)');
+%     ylabel('Angular Velocity (deg/sec)');
+%     title('Joint Velocities over trajectory');
+%     
+%     figure(8)
+%     theta=      180/pi*z_out(2,:)+180/pi*z_out(3,:)-90*ones(1,length(z_out))+180/pi*z_out(4,:);
+%     thetadot=   180/pi*dz_out(2,:)+180/pi*dz_out(3,:)+180/pi*dz_out(4,:);
+%     thetadotdot=180/pi*dz_out(6,:)+180/pi*dz_out(7,:)+180/pi*dz_out(8,:); 
+%     plot(tspan,theta,'b',tspan,thetadot,'g',tspan,thetadotdot,'r')
+%     legend('angle','rotation','acceleration');
+%     xlabel('Time (s)');
+%     ylabel('[deg][deg/sec][deg/sec^2]');
+%     title('Plate in world frame');
+%     
+%     figure(9)
+%     plot(tspan,ball_alongPlate(1:3,:));
+%     legend('x','xdot','xdotdot');
+%     xlabel('Time (s)');
+%     ylabel('[m][m/s][m/s^2]');
+%     title('Ball along plate');
+%     
+%     figure(10)
+%     plot(tspan,accel(1:2,:));
+%     legend('x','y');
+%     xlabel('Time (s)');
+%     ylabel('[m/s^2]');
+%     axis([0 tf -2 2]);
+%     title('accleration of plate world frame');
     
     %% Animate Solution
     figure(7); clf;
     hold on
-   
     animateSol(tspan, z_out,p,ball_alongPlate,rE, theta, p_cup_initial, p_cup_final);
+    
 end
 
 
@@ -185,7 +186,7 @@ function dz = dynamics(t,z,u,p)
     b = b_arm(z,u,p);
     
     % Solve for qdd.
-    qdd = A\(b);
+    qdd = A\b;
     dz = 0*z;
     
     % Form dz
@@ -257,10 +258,10 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
         set(h_link3,'XData',[rE(1) rD(1)]);
         set(h_link3,'YData',[rE(2) rD(2)]);
         
-        set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
-        set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
+        %set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
+        %set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
 
-        pause(.01)
+        pause(.1)
     end
 end
 
