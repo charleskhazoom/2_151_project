@@ -23,17 +23,17 @@ function simulate_arm()
     
    
     %% Setup Dynamic simulation
-    dt = 0.01;
-    tf = 5; %May have to change if 10 second not enough to complete task
+    dt = 0.001;
+    tf = 3; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
     p_cup_initial = [-0.8,0.5]';
-    q0 = invKin_arm(p_cup_initial,p,[0,0]')
+    q0 = eval(invKin_arm(p_cup_initial,p,[0,0]'))
     z0 = [q0;0;0;0;0];
     
     p_cup_final = [.5,.3]'; % need to specify orientation of last link in the world frame too!
-    qf = invKin_arm(p_cup_final,p,q0(2:3))
+    qf = eval(invKin_arm(p_cup_final,p,q0(2:3)))
     zf = [qf;0;0;0;0];
     
     z_out = zeros(8,num_step);
@@ -60,11 +60,9 @@ function simulate_arm()
     
     for i=1:num_step
         % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
-        p_ctrl_fl_op_sp =1;% dummy assignation for now;
-%         u_out(:,i) = control_law_fb_lin_op_sp(tspan(i), z_out(:,i), p,p_ctrl_fl_op_sp);
-        
-        %u_out(:,i) = control_law(tspan(i),z_out(:,i));
-        u_out(:,i) = zeros(4,1);
+
+        u_out(:,i) = control_law(tspan(i),z_out(:,i));
+%         u_out(:,i) = zeros(4,1);
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
         z_out(:,i+1) = z_out(:,i) + dz*dt;
@@ -222,7 +220,7 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
     %Step through and update animation
     for i = 1:length(tspan)
         % skip frame.
-        if mod(i,10)
+        if mod(i,50)
             continue;
         end
         t = tspan(i);
