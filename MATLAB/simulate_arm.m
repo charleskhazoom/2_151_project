@@ -12,7 +12,7 @@ function simulate_arm()
     l_3 = 12*0.0254;
     g = 9.81;    
     
-    m_ball = .05;
+    m_ball = .1; %seems like making mass larger will result in ball moving more
     u=.25;
     %% Parameter vector (real system)
     p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
@@ -107,6 +107,7 @@ function simulate_arm()
     
     %% Animate Solution
     figure(7); clf;
+    theta=z_out(2,:)+z_out(3,:)-90/180*pi+z_out(4,:);
     hold on
     animateSol(tspan, z_out,p,ball_alongPlate,rE, theta, p_cup_initial, p_cup_final);
     
@@ -194,8 +195,8 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
         set(h_link3,'XData',[rE(1) rD(1)]);
         set(h_link3,'YData',[rE(2) rD(2)]);
         
-        %set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
-        %set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
+        set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
+        set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
 
         pause(.1)
     end
