@@ -7,9 +7,9 @@ function u = control_law_standard_lqr(t, z, p, p_ctrl)
     zf = p_ctrl.zf;
     
     % don't want dz componenets of final state - just want positions
-    zf = zf(1:4);
+%     zf = zf(1:4);
     
     % u = r - K*x
-    u = K_r*zf - K_lqr*z;
+    u = K_r*zf(1:4) - K_lqr*(z-zf);
     
 end

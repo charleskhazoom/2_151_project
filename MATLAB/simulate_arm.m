@@ -24,7 +24,7 @@ function simulate_arm()
    
     %% Setup Dynamic simulation
     dt = 0.001;
-    tf = 3; %May have to change if 10 second not enough to complete task
+    tf = 10; %May have to change if 10 second not enough to complete task
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step); 
     
