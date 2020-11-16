@@ -41,13 +41,10 @@ function simulate_arm()
     ball_alongPlate = zeros(3,num_step);
     ball_alongPlate(:,1) = [0;0;0];
     
-    %% tangent linearization of dynamics about final desired position
-    u_equi = Grav_arm(zf,p); % inputs at equilibrium = gravity
-    [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p);
-    
     %% choose control law
-    ctrl_law_str = 'joint_space_fb_lin';
+%     ctrl_law_str = 'joint_space_fb_lin';
 %     ctrl_law_str = 'operational_space_fb_lin';
+    ctrl_law_str = 'standard_lqr';
 
     control_law = get_controller(zf,p_estim,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
 
@@ -112,25 +109,6 @@ function simulate_arm()
     animateSol(tspan, z_out,p,ball_alongPlate,rE, theta, p_cup_initial, p_cup_final);
     
 end
-
-
-
-function dz = dynamics(t,z,u,p)
-    % Get mass matrix
-    A = A_arm(z,p);
-     
-    % Get b = Q - V(q,qd) - G(q)
-    b = b_arm(z,u,p);
-    
-    % Solve for qdd.
-    qdd = A\b;
-    dz = 0*z;
-    
-    % Form dz
-    dz(1:4) = z(5:8);
-    dz(5:8) = qdd;
-end
-
 
 function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
     % Prepare plot handles
@@ -201,33 +179,3 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
         pause(.1)
     end
 end
-
-
-function [A_lin, B_lin] =  linearize_dynamics(z_equi,u_equi,p)
-    n_states = length(z_equi);
-    n_inputs = length(u_equi);
-    t =0; % dummy assignation of t variable
-    dz_equi = dynamics(t,z_equi,u_equi,p);
-%     zout0 = zout(:,end);
-    
-    %statef0
-    ep = 1e-6;
-    delStateMat = eye(n_states);
-    A_lin = zeros(n_states,n_states);
-    B_lin = zeros(n_states,n_inputs);
-
-    for i=1:n_states
-        z_dev = z_equi + ep*delStateMat(:,i);
-        dz_dev = dynamics(t,z_dev,u_equi,p);
-        A_lin(:,i) = (dz_dev - dz_equi)/ep;
-    end
-
-
-    del_u_mat= eye(n_inputs);
-    for i=1:n_inputs
-        u_dev = u_equi+ep*del_u_mat(:,i);
-        dz_dev = dynamics(t,z_equi,u_dev,p);
-        B_lin(:,i) = (dz_dev - dz_equi)/ep;
-    end
-end
-

@@ -61,6 +61,23 @@ switch chosen_crtl_str
     
     control_law = @(t,z) control_law_fb_lin_op_sp(t, z, p_model,p_ctrl);
     
+    case 'standard_lqr'
+    % tangent linearization of dynamics about final desired position
+    u_equi = Grav_arm(zf,p_model); % inputs at equilibrium = gravity
+    [A_lin, B_lin] =  linearize_dynamics(zf,u_equi,p_model);
+    
+    C_lin = eye(size(A_lin, 1));
+    
+    Q = C_lin'*C_lin*1; % TODO: Tune me!
+    R = eye(size(B_lin, 2))*1; % TODO: Tune me!
+    
+    K_lqr = lqr(A_lin, B_lin, Q, R);
+    p_ctrl_lqr.lqr_gain = K_lqr;
+    p_ctrl_lqr.zf = zf; % desired final state
+    p_ctrl_lqr.kr = -inv(C_lin(1:4, :)*inv(A_lin - B_lin*K_lqr)*B_lin);
+    
+    control_law = @(t, z) control_law_standard_lqr(t, z, p_model, p_ctrl_lqr);
+    
     otherwise
         error('choose controller among available options')
 end
