@@ -12,8 +12,8 @@ function simulate_arm()
     l_3 = 12*0.0254;
     g = 9.81;    
     
-    m_ball = .1; %seems like making mass larger will result in ball moving more
-    u=.25;
+    k = 1/2; %inertia of cylinder
+    k = 2/5; %inertia of ball
     %% Parameter vector (real system)
     p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
     %% Parameter vector (estimated system)
@@ -70,18 +70,11 @@ function simulate_arm()
         
         % Ball Simulation
         theta=z_out(2,i)+z_out(3,i)-90/180*pi+z_out(4,i);
-        ddtheta =dz_out(6,i)+dz_out(7,i)+dz_out(8,i);
         accel(:,i) = acceleration_endEffector([z_out(:,i);dz_out(5:8,i)],p);
-        a_x_plate = accel(1,i)*cos(-theta) - accel(2,i)*sin(-theta);
-        a_y_plate = accel(1,i)*sin(-theta) + accel(2,i)*cos(-theta);
+        a_x_plate = accel(1,i)*cos(-theta) - accel(2,i)*sin(-theta); %rotate into plate frame
+        %a_y_plate = accel(1,i)*sin(-theta) + accel(2,i)*cos(-theta); 
         
-        Normal = m_ball*g*cos(-theta) - ddtheta*m_ball*ball_alongPlate(1,i)^3 + m_ball*a_y_plate;
-        if(abs(u*Normal)>abs(m_ball*g*sin(-theta)))
-            friction=m_ball*g*sin(-theta);
-        else
-            friction=u*Normal;
-        end
-        a_b_plate = m_ball*g*sin(-theta) - friction - m_ball*a_x_plate;
+        a_b_plate = (1/(1+k))*(g*sin(-theta)-a_x_plate); %
         
         ball_alongPlate(3,i+1)=a_b_plate;
         ball_alongPlate(2,i+1)=ball_alongPlate(2,i) + a_b_plate*dt;
