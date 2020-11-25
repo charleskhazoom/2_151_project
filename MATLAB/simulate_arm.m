@@ -1,4 +1,13 @@
 function simulate_arm()
+    % simulate_arm: calculates states and inputs over a time span and then
+    % plots the energy and kinematics of the system. Also animates the motion
+    % of the system
+    
+    % INPUTS
+    % N/A
+
+    % OUTPUTS
+    % N/A
     clear; clc
     %% Define fixed paramters
     m_cart =50 ;         
@@ -12,7 +21,7 @@ function simulate_arm()
     l_3 = 12*0.0254;
     g = 9.81;    
     
-    k = 1/2; %inertia of cylinder
+    %k = 1/2; %inertia of cylinder
     k = 2/5; %inertia of ball
     %% Parameter vector (real system)
     p   = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]';        % parameters
@@ -29,14 +38,14 @@ function simulate_arm()
     tspan = linspace(0, tf, num_step); 
     
     p_cup_initial = [-0.8,0.5]';
-    q0 = eval(invKin_arm(p_cup_initial,p,[0,0]'))
-    z0 = [q0;0;0;0;0];
+    q0 = eval(invKin_arm(p_cup_initial,p,[0,0]'));
+    z0 = [q0;0;0;0;0;0;0]; %8+2[ball: x xdot] last 2 entries for the ball
     
     p_cup_final = [.5,.3]'; % need to specify orientation of last link in the world frame too!
-    qf = eval(invKin_arm(p_cup_final,p,q0(2:3)))
-    zf = [qf;0;0;0;0];
+    qf = eval(invKin_arm(p_cup_final,p,q0(2:3)));
+    zf = [qf;0;0;0;0;0;0];
     
-    z_out = zeros(8,num_step);
+    z_out = zeros(10,num_step);
     z_out(:,1) = z0;
     ball_alongPlate = zeros(3,num_step);
     ball_alongPlate(:,1) = [0;0;0];
@@ -46,7 +55,7 @@ function simulate_arm()
 %     ctrl_law_str = 'operational_space_fb_lin';
     ctrl_law_str = 'standard_lqr';
 
-    control_law = get_controller(zf,p_estim,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
+    control_law = get_controller(zf(1:8),p_estim,ctrl_law_str); % outputs function handle to be used during Euler integration (for loop below)
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -58,7 +67,7 @@ function simulate_arm()
     for i=1:num_step
         % Compute Controls % HERE WE CAN CHANGE THE CONTROL LAW TO BE ANYTHING
 
-        u_out(:,i) = control_law(tspan(i),z_out(:,i));
+        u_out(:,i) = control_law(tspan(i),z_out(1:8,i));
 %         u_out(:,i) = zeros(4,1);
         dz = dynamics(tspan(i), z_out(:,i),u_out(:,i), p);
         %z_out(3,i) = joint_limit_constraint(z_out(:,i),p);
@@ -67,10 +76,11 @@ function simulate_arm()
         
         % Position update
         z_out(1:4,i+1) = z_out(1:4,i) + z_out(5:8,i+1)*dt;
+        z_out(9,i+1) = z_out(9,i) + z_out(10,i+1)*dt;
         
         % Ball Simulation
         theta=z_out(2,i)+z_out(3,i)-90/180*pi+z_out(4,i);
-        accel(:,i) = acceleration_endEffector([z_out(:,i);dz_out(5:8,i)],p);
+        accel(:,i) = acceleration_endEffector([z_out(1:8,i);dz_out(5:8,i)],p);
         a_x_plate = accel(1,i)*cos(-theta) - accel(2,i)*sin(-theta); %rotate into plate frame
         %a_y_plate = accel(1,i)*sin(-theta) + accel(2,i)*cos(-theta); 
         
@@ -118,7 +128,7 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
     start = plot(start_pos(1),start_pos(2),'gx');
     final = plot(final_pos(1),final_pos(2),'rx');
     
-    ball= plot([0],[0],'LineWidth',2);
+    ballPlot= plot([0],[0],'LineWidth',2);
     r=.1; %ball's radius is arbitrary
     
     xlabel('x'); ylabel('y');
@@ -166,8 +176,10 @@ function animateSol(tspan, x, p, ballX,rEE, theta, start_pos, final_pos)
         set(h_link3,'XData',[rE(1) rD(1)]);
         set(h_link3,'YData',[rE(2) rD(2)]);
         
-        set(ball,'XData',[rEE(1,i)+ballX(1,i)*cosd(-theta(i))  rEE(1,i)+ballX(1,i)*cosd(-theta(i))+r*sind(-theta(i))]);
-        set(ball,'YData',[rEE(2,i)-ballX(1,i)*sind(-theta(i))  rEE(2,i)-ballX(1,i)*sind(-theta(i))+r*cosd(-theta(i))]);
+        %ball=ballX(1,i); %check if it works with manual simulation of ball
+        ball=z(9); %using state for ball
+        set(ballPlot,'XData',[rEE(1,i)+ball*cosd(-theta(i))  rEE(1,i)+ball*cosd(-theta(i))+r*sind(-theta(i))]);
+        set(ballPlot,'YData',[rEE(2,i)-ball*sind(-theta(i))  rEE(2,i)-ball*sind(-theta(i))+r*cosd(-theta(i))]);
 
         pause(.1)
     end
