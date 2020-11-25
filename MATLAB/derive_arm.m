@@ -74,9 +74,9 @@ M2Q = @(M, w) simplify(jacobian(w, dq)'*(M));   % moment contributions to genera
 
 % Kinetic Energies
 T_cart = (1/2)*m_cart*dot(drCart, drCart);
-T1 = (1/2)*m1*dot(dr_m1,dr_m1) + (1/2)*I1*omega1^2;
-T2 = (1/2)*m2*dot(dr_m2,dr_m2) + (1/2)*I2*omega2^2;
-T3 = (1/2)*m3*dot(dr_m3,dr_m3) + (1/2)*I3*omega3^2;
+T1 = (1/2)*m1*dot(dr_m1, dr_m1) + (1/2)*I1*omega1^2;
+T2 = (1/2)*m2*dot(dr_m2, dr_m2) + (1/2)*I2*omega2^2;
+T3 = (1/2)*m3*dot(dr_m3, dr_m3) + (1/2)*I3*omega3^2;
 T = simplify(T_cart + T1 + T2 + T3); % total
 
 % T1r = (1/2)*Ir*(N*dth1)^2;
@@ -107,7 +107,7 @@ L = T - Vg; % Lagrangian
 eom = ddt(jacobian(L, dq).') - jacobian(L, q).' - Q;
 
 % Rearrange Equations of Motion
-A = jacobian(eom,ddq); % System matrix
+A = jacobian(eom, ddq); % System matrix
 b = A*ddq - eom; % Input weighting matrix
 
 % Equations of motion are
@@ -123,10 +123,10 @@ J = jacobian(r3, q);
 dJ = reshape(ddt(J(:)), size(J));
 
 % Write Energy Function and Equations of Motion
-z    = [q; dq];
-r3   = r3(1:2);
-dr3  = dr3(1:2);
-ddr3 = ddr3(1:2);
+z    = [q; dq]; % state vector
+r3   = r3(1:2); % platform position (x, y)
+dr3  = dr3(1:2); % platform velocity
+ddr3 = ddr3(1:2); % platform acceleration
 z2   = [q; dq; ddq];
 J    = J(1:2, 1:4);
 dJ   = dJ(1:2, 1:4);
