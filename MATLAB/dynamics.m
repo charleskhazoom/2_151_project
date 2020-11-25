@@ -1,14 +1,23 @@
-function dz = dynamics(t,z,u,p)
-% calculate rate of change of state dz at time t from state z, input u, and
+function dz = dynamics(t, z, u, p)
+% dynamics: calculate rate of change of state dz at time t from state z, input u, and
 % system parameters p
+%
+% INPUTS
+% t: time
+% z: state
+% u: control input
+% p: parameters
+%
+% OUTPUTS
+% dz: rate of change of state (system dynamics)
 
-    % Get mass matrix
-    A = A_arm(z,p);
+    % Get system matrix
+    A = A_arm(z, p);
      
     % Get b = Q - V(q,qd) - G(q)
-    b = b_arm(z,u,p);
+    b = b_arm(z, u, p);
     
-    % Solve for qdd.
+    % Solve for qdd
     qdd = A\b;
     dz = 0*z;
     
