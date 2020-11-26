@@ -29,15 +29,9 @@ function dz = dynamics(t, z, u, p)
     % for the ball
     if (length(z) == 8)
     elseif (length(z) == 10)
-        dz(9) = z(10); 
-        
-        theta = z(2) + z(3) - 90/180*pi + z(4); % angle of plate
-        
-        jdot = jacobian_dot_endEffector(z, p);
-        j = jacobian_endEffector(z, p);
-        xdd = jdot*dz(1:4) + j*qdd; % get linear acceleration using jacobians 
-        
-        a_x_plate = xdd(1)*cos(-theta) - xdd(2)*sin(-theta); % rotate into plate frame        
-        dz(10) = (1/(1 + 2/5))*(p(10)*sin(-theta) - a_x_plate - 5*z(10)); % p(10) = gravity and a damping term -k*v
+        dz_ball = ball_dynamics(t,z,qdd,p);
+        dz(9) = dz_ball(1);
+        dz(10) = dz_ball(2);
+
     end
 end
