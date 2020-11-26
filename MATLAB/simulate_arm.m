@@ -102,7 +102,6 @@ clear all; clc; close all;
 
         % calculate dz, change in state variables
         dz = dynamics(tspan(i), z_out(:, i), u_out(:, i), p);
-        % z_out(3, i) = joint_limit_constraint(z_out(:, i), p);
 
         % Forward Euler to calculate next state
         z_out(:, i + 1) = z_out(:, i) + dz*dt;
