@@ -38,6 +38,6 @@ function dz = dynamics(t, z, u, p)
         xdd = jdot*dz(1:4) + j*qdd; % get linear acceleration using jacobians 
         
         a_x_plate = xdd(1)*cos(-theta) - xdd(2)*sin(-theta); % rotate into plate frame        
-        dz(10) = (1/(1 + 2/5))*(p(10)*sin(-theta) - a_x_plate - 10*z(10)); % p(10) = gravity and a damping term -k*v
+        dz(10) = (1/(1 + 2/5))*(p(10)*sin(-theta) - a_x_plate - 5*z(10)); % p(10) = gravity and a damping term -k*v
     end
 end

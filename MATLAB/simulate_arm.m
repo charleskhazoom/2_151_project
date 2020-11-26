@@ -236,7 +236,7 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
         
         % plot ball
         % ball = ballX(1, i); % check if it works with manual simulation of ball
-        ball = z(9); % ball position
+         ball = z(9); % ball position
         set(ballPlot, 'XData', [rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))]);
         set(ballPlot, 'YData', [rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))]);
 
