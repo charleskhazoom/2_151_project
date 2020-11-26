@@ -116,7 +116,6 @@ clear all; clc; close all;
         theta = z_out(2, i) + z_out(3, i) - 90/180*pi + z_out(4, i); % plate angle
         accel(:, i) = acceleration_endEffector([z_out(1:8, i); dz_out(5:8, i)], p);
         a_x_plate = accel(1, i)*cos(-theta) - accel(2, i)*sin(-theta); % rotate into plate frame
-        %a_y_plate = accel(1,i)*sin(-theta) + accel(2,i)*cos(-theta); 
         
         a_b_plate = (1/(1 + k))*(g*sin(-theta) - a_x_plate); %
         
