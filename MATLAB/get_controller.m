@@ -12,10 +12,13 @@ function control_law = get_controller(zf, p_model, chosen_ctrl_str)
 
 switch chosen_ctrl_str
     
-    % design lqr for feedback-linearized system
     case 'joint_space_fb_lin'
+            % design lqr for feedback-linearized system
+
         nDof = 4;
         nState = nDof*2;
+        
+        zf = zf(1:nState); % ignore ball states
         
         A = [zeros(nDof) eye(nDof); zeros(nDof) zeros(nDof)];
         B = [zeros(nDof); eye(nDof)];
@@ -41,9 +44,60 @@ switch chosen_ctrl_str
     %     Kr = -inv(C*inv(A - B*K)*B);
 
         p_ctrl_fl.zf = zf; % desired final state
-
+        
         control_law = @(t,z) control_law_feedback_linearization(t, z, p_model, p_ctrl_fl);
+    case 'joint_space_fb_lin_with_ball'
+        % design lqr for feedback-linearized system
+        nDof = 5;
+        nInputs = 4;
+        
+        nState = nDof*2;
+        
+        % feedback linearized dyanmics of arm only
+        Afl = [zeros(nDof-1) eye(nDof-1); zeros(nDof-1) zeros(nDof-1)];
+        Bfl = [zeros(nInputs); eye(nInputs)];
+        
+        % linearize ball dynamics wrt input qdd and state
+        u_equi = [0;0;0;0]; % inputs at equilibrium = no joint acceleration
+        [Aball, Bball] = linearize_ball_dynamics(zf, u_equi, p_model);
+        
+        A = [Afl zeros(8,2);Aball];
+        B = [Bfl;Bball];
+        
+        C = eye(nState); % full state feedback for identity matrix, only measure (x,y)
+        assert(rank(ctrb(A, B)) == length(A), 'System is not controllable\n'); % check controllability
+        
+        
 
+        
+        % Q matrix
+%         Q = [zeros(1,8) 1 0]'*[zeros(1,8) 1 0]; 
+        Q = eye(nState)*(1/deg2rad(10))^2;
+        Q(9,9) = 1/(0.03^2);
+        Q(10,10)=(1/0.1^2);
+%         Q(2, 2) = 1000;
+
+        % R matrix
+        R= zeros(nInputs);
+        R(1,1) = 0.001;
+        R(2,2) = 0.001;
+        R(3,3) = 0.001;
+        R(4,4) = 0.1;
+
+
+
+        K = lqr(A, B, Q, R); % lqr gains
+
+        p_ctrl_fl.lqr_gain = K;
+        kr_q = zeros(4);%-inv(C([1:4], 1:10)*inv(A - B*K)*B);
+        p_ctrl_fl.kr = kr_q; %-inv(C*inv(A - B*K_fl)*B); % scale the reference appropriately
+
+    %     Kr = -inv(C*inv(A - B*K)*B);
+
+        p_ctrl_fl.zf = zf; % desired final state
+
+        control_law = @(t,z) control_law_feedback_linearization_with_ball(t, z, p_model, p_ctrl_fl);
+ 
     % design lqr for feedback-linearized system in operational space
     case 'operational_space_fb_lin'
         nDof = 2;
@@ -75,6 +129,8 @@ switch chosen_ctrl_str
 
     % design standard lqr towards desired final state
     case 'standard_lqr'
+        zf = zf(1:8); % ignore ball states
+
         % tangent linearization of dynamics about final desired position
         u_equi = Grav_arm(zf, p_model); % inputs at equilibrium = gravity - for non-zero set point
         [A_lin, B_lin] = linearize_dynamics(zf, u_equi, p_model);

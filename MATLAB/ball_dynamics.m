@@ -12,5 +12,5 @@ function dz_ball = ball_dynamics(t,z,qdd,p)
         
         a_x_plate = xdd(1)*cos(-theta) - xdd(2)*sin(-theta); % rotate into plate frame        
         dz_ball(2) = (1/(1 + 2/5))*(p(10)*sin(-theta) - a_x_plate - 5*z(10)); % p(10) = gravity and a damping term -k*v
-
+        dz_ball = dz_ball';
 end

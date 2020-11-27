@@ -9,7 +9,7 @@ function simulate_arm()
 % OUTPUTS
 % N/A
     
-clear all; clc; close all;
+clear all; clc; %close all;
 
 %% Define fixed paramters
     m_cart = 50; % cart mass, kg         
@@ -45,7 +45,7 @@ clear all; clc; close all;
     numInputs = 4; % [f_cart, t_joint1, t_joint2, t_joint3]'
 
     dt = 0.001; % timestep, sec
-    tf = 10; % % final time, sec (change if 10 seconds not enough to complete task)
+    tf = 3.5; % % final time, sec (change if 10 seconds not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
@@ -79,12 +79,14 @@ clear all; clc; close all;
     
 %% Choose control law
 %     ctrl_law_str = 'joint_space_fb_lin';
+    ctrl_law_str = 'joint_space_fb_lin_with_ball';
+    
 %     ctrl_law_str = 'operational_space_fb_lin';
-    ctrl_law_str = 'standard_lqr';
+%     ctrl_law_str = 'standard_lqr';
     fprintf(['\nChosen control law: ' ctrl_law_str '\n']) 
     
     % outputs function handle to be used during Euler integration (for loop below)
-    control_law = get_controller(zf(1:8), p_estim, ctrl_law_str);
+    control_law = get_controller(zf, p_estim, ctrl_law_str);
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -237,8 +239,14 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
         % plot ball
         % ball = ballX(1, i); % check if it works with manual simulation of ball
          ball = z(9); % ball position
-        set(ballPlot, 'XData', [rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))]);
-        set(ballPlot, 'YData', [rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))]);
+        xcenter  = mean([rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))]);
+        ycenter  = mean([rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))]);
+        
+%         set(ballPlot,'XData',[rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))])
+%         set(ballPlot,'YData',[rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))])
+
+        set(ballPlot, 'XData', xcenter,'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',10);
+        set(ballPlot, 'YData', ycenter);%,'Marker','o','MarkerFaceColor','r','color','r');
 
         pause(0.1) % wait, draw next frame
     end

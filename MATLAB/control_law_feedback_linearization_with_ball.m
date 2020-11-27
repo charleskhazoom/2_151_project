@@ -1,4 +1,4 @@
-function u = control_law_feedback_linearization(t, z, p, p_ctrl)
+function u = control_law_feedback_linearization_with_ball(t, z, p, p_ctrl)
 % control_law_feedback_linearization: calculate next step control input
 % using a feedback linearization scheme
 %
@@ -10,8 +10,7 @@ function u = control_law_feedback_linearization(t, z, p, p_ctrl)
 %
 % OUTPUT
 % u: Control output
-    z = z(1:8); % ignore ball states
-    
+
     % unpack controller parameters
     K_lqr = p_ctrl.lqr_gain;
     kr = p_ctrl.kr; % scale the reference appropriately
@@ -22,6 +21,6 @@ function u = control_law_feedback_linearization(t, z, p, p_ctrl)
     G = Grav_arm(z, p); % Gravity matrix
     
     r = zf(1:4); % desired new equilibrium point 
-    w = kr*r - K_lqr*z(1:8); % do lqr here 
+    w = kr*r - K_lqr*(z-zf); % do lqr here 
     u = V + G + M*w; % control input cancels nonlinear dynamics, adds state feedback
 end
