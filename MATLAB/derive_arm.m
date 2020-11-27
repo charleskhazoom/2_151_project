@@ -107,8 +107,8 @@ L = T - Vg; % Lagrangian
 eom = ddt(jacobian(L, dq).') - jacobian(L, q).' - Q;
 
 % Rearrange Equations of Motion
-A = jacobian(eom, ddq); % System matrix
-b = A*ddq - eom; % Input weighting matrix
+A = jacobian(eom, ddq); % Mass matrix
+b = A*ddq - eom; % non-acceleration terms
 
 % Equations of motion are
 % eom = A*ddq + (coriolis term) + (gravitational term) - Q = 0

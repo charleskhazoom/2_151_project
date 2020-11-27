@@ -32,11 +32,10 @@ clear all; clc; %close all;
 %     mu = 0.25; % coefficient of friction between ball and platform
 
 %% Parameter vector (real system)
-    p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]'; % parameters vector
+    p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g k]'; % parameters vector
 
 %% Parameter vector (estimated system)
-    p_estim = p*1.00;
-
+    p_estim = p*1.00; % estimate parameter vector
     mass_error = 1; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
     
@@ -45,7 +44,7 @@ clear all; clc; %close all;
     numInputs = 4; % [f_cart, t_joint1, t_joint2, t_joint3]'
 
     dt = 0.001; % timestep, sec
-    tf = 5; % % final time, sec (change if 10 seconds not enough to complete task)
+    tf = 5; % % final time, sec (change if not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
@@ -63,13 +62,16 @@ clear all; clc; %close all;
     zf = [qf; 0; 0; 0; 0; 0; 0]; % final state, consider if you can't overconstrain ball final state
     
     fprintf(['\nFinal State\nx_cart: ' num2str(qf(1)) ' m\n' ...
-        'theta_1:' num2str(qf(2)) ' rad\n' ...
-        'theta_2:' num2str(qf(3)) ' rad\n' ...
-        'theta_3:' num2str(qf(4)) ' rad\n']);
+        'theta_1: ' num2str(qf(2)) ' rad\n' ...
+        'theta_2: ' num2str(qf(3)) ' rad\n' ...
+        'theta_3: ' num2str(qf(4)) ' rad\n']);
     
     z_out = zeros(numStates, num_step);
     z_out(:, 1) = z0;
     dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
+    
+    z_hat = zeros(numStates, num_step); % state estimates
+    z_hat(:, 1) = zeros(numStates, 1); % initial state estimates (0 for now)
     
     u_out = zeros(numInputs, num_step); % store control input at each time step 
 
@@ -80,10 +82,10 @@ clear all; clc; %close all;
 %% Choose control law
 %     ctrl_law_str = 'joint_space_fb_lin';
     ctrl_law_str = 'joint_space_fb_lin_with_ball';
-    
 %     ctrl_law_str = 'operational_space_fb_lin';
 %     ctrl_law_str = 'standard_lqr';
-    fprintf(['\nChosen control law: ' ctrl_law_str '\n']) 
+    
+    fprintf(['\nChosen control law: ' ctrl_law_str '\n\n']) 
     
     % outputs function handle to be used during Euler integration (for loop below)
     control_law = get_controller(zf, p_estim, ctrl_law_str);
@@ -100,7 +102,7 @@ clear all; clc; %close all;
 
         % get control input for this timestep
         u_out(:, i) = control_law(tspan(i), z_out(:, i));
-        % u_out(:, i) = zeros(4, 1);
+%         u_out(:, i) = control_law(tspan(i), z_hat(:, i));
 
         % calculate dz, change in state variables
         dz = dynamics(tspan(i), z_out(:, i), u_out(:, i), p);
@@ -109,9 +111,10 @@ clear all; clc; %close all;
         z_out(:, i + 1) = z_out(:, i) + dz*dt;
         dz_out(:, i) = dz;
         
+        % Arent these lines redundant from 4 lines up?
         % Position update
-        z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
-        z_out(9, i + 1) = z_out(9, i) + z_out(10, i + 1)*dt; % ball
+%         z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
+%         z_out(9, i + 1) = z_out(9, i) + z_out(10, i + 1)*dt; % ball
         
         % Ball Simulation
         theta = z_out(2, i) + z_out(3, i) - 90/180*pi + z_out(4, i); % plate angle

@@ -13,8 +13,7 @@ function control_law = get_controller(zf, p_model, chosen_ctrl_str)
 switch chosen_ctrl_str
     
     case 'joint_space_fb_lin'
-            % design lqr for feedback-linearized system
-
+        % design lqr for feedback-linearized system
         nDof = 4;
         nState = nDof*2;
         
@@ -46,45 +45,41 @@ switch chosen_ctrl_str
         p_ctrl_fl.zf = zf; % desired final state
         
         control_law = @(t,z) control_law_feedback_linearization(t, z, p_model, p_ctrl_fl);
+        
     case 'joint_space_fb_lin_with_ball'
-        % design lqr for feedback-linearized system
+    % design lqr for feedback-linearized system
         nDof = 5;
         nInputs = 4;
         
         nState = nDof*2;
         
         % feedback linearized dyanmics of arm only
-        Afl = [zeros(nDof-1) eye(nDof-1); zeros(nDof-1) zeros(nDof-1)];
+        Afl = [zeros(nDof - 1) eye(nDof - 1); zeros(nDof - 1) zeros(nDof - 1)];
         Bfl = [zeros(nInputs); eye(nInputs)];
         
         % linearize ball dynamics wrt input qdd and state
-        u_equi = [0;0;0;0]; % inputs at equilibrium = no joint acceleration
+        u_equi = [0; 0; 0; 0]; % inputs at equilibrium = no joint acceleration
         [Aball, Bball] = linearize_ball_dynamics(zf, u_equi, p_model);
         
-        A = [Afl zeros(8,2);Aball];
-        B = [Bfl;Bball];
+        A = [Afl zeros(8, 2); Aball];
+        B = [Bfl; Bball];
         
         C = eye(nState); % full state feedback for identity matrix, only measure (x,y)
-        assert(rank(ctrb(A, B)) == length(A), 'System is not controllable\n'); % check controllability
-        
-        
-
+        assert(rank(ctrb(A, B)) == length(A), 'System is not controllable\n'); % check controllability       
         
         % Q matrix
 %         Q = [zeros(1,8) 1 0]'*[zeros(1,8) 1 0]; 
         Q = eye(nState)*(1/deg2rad(10))^2;
-        Q(9,9) = 1/(0.1^2);
-        Q(10,10)=(1/1^2);
+        Q(9, 9) = 1/0.1^2;
+        Q(10, 10) = 1/1^2;
 %         Q(2, 2) = 1000;
 
         % R matrix
         R = zeros(nInputs);
-        R(1,1) = 1/(0.25^2);
-        R(2,2) = 1/(0.5^2);
-        R(3,3) = 1/(3^2);
-        R(4,4) = 1/(10^2);
-
-
+        R(1, 1) = 1/(0.25^2);
+        R(2, 2) = 1/(0.5^2);
+        R(3, 3) = 1/(3^2);
+        R(4, 4) = 1/(10^2);
 
         K = lqr(A, B, Q, R); % lqr gains
 
@@ -98,8 +93,8 @@ switch chosen_ctrl_str
 
         control_law = @(t,z) control_law_feedback_linearization_with_ball(t, z, p_model, p_ctrl_fl);
  
-    % design lqr for feedback-linearized system in operational space
     case 'operational_space_fb_lin'
+    % design lqr for feedback-linearized system in operational space
         nDof = 2;
         nState = nDof*2;
         
@@ -127,8 +122,8 @@ switch chosen_ctrl_str
 
         control_law = @(t,z) control_law_fb_lin_op_sp(t, z, p_model, p_ctrl);
 
-    % design standard lqr towards desired final state
     case 'standard_lqr'
+    % design standard lqr towards desired final state
         zf = zf(1:8); % ignore ball states
 
         % tangent linearization of dynamics about final desired position
