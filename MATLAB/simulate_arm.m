@@ -35,7 +35,7 @@ clear all; clc; %close all;
     p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]'; % parameters vector
 
 %% Parameter vector (estimated system)
-    p_estim = p;
+    p_estim = p*1.00;
 
     mass_error = 1; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
@@ -45,7 +45,7 @@ clear all; clc; %close all;
     numInputs = 4; % [f_cart, t_joint1, t_joint2, t_joint3]'
 
     dt = 0.001; % timestep, sec
-    tf = 3.5; % % final time, sec (change if 10 seconds not enough to complete task)
+    tf = 5; % % final time, sec (change if 10 seconds not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
