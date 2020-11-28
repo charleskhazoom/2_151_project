@@ -96,7 +96,7 @@ clear all; clc; %close all;
     Cob(5,9) = 1;
 
 %% Choose control law
-use_observer = 0;% 0: full state feedback. 1: observer feedback.
+use_observer = 1;% 0: full state feedback. 1: observer feedback.
 
 
 %     ctrl_law_str = 'joint_space_fb_lin';
