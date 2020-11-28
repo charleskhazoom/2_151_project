@@ -36,8 +36,8 @@ clear all; clc; %close all;
 
 %% Parameter vector (estimated system)
 
-    p_estim = p*1.00; % estimate parameter vector
-    mass_error = 1; % assume all masses are estimated incorrectly by some percentage
+    p_estim = p; % estimate parameter vector
+    mass_error = 1.05; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
     
 %% Set up dynamic simulation    
@@ -46,7 +46,7 @@ clear all; clc; %close all;
 
     dt = 0.001; % timestep, sec
 
-    tf = 5; % % final time, sec (change if not enough to complete task)
+    tf = 6; % % final time, sec (change if not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
@@ -80,13 +80,14 @@ clear all; clc; %close all;
 
     u_out = zeros(numInputs, num_step); % store control input at each time step 
     
-    z_add = zeros(2, num_step);% additional states from observer or integral states;
-    z_add(:,1) = [0;0]; % initialize to zero; TODO make this more general
+    z_int = zeros(2, num_step);% integral states for lqi controllers;
+    z_int(:,1) = [0;0]; % initialize to zero; 
     
     ball_alongPlate = zeros(3, num_step); % ball position over time
     ball_alongPlate(:, 1) = [0; 0; 0];
     accel = zeros(2, num_step); % acceleration of platform
     %% Measurement matrix C
+    
     Cob = zeros(5,numStates);
     % measure joint angles
     Cob(1,1) = 1;
@@ -96,12 +97,28 @@ clear all; clc; %close all;
     
     % measure ball position
     Cob(5,9) = 1;
-
+    
+    % I don't know how to implement a kalman filter here. I Cant' get the
+    % kalman() to output a solution... Why?
+    % noise covariance Wo
+    Wo = zeros(5);
+    Wo(1,1) = (1/12)*0.2;
+    Wo(2,2) = (1/12);
+    Wo(3,3) = (1/12);
+    Wo(4,4) = (1/12);
+    Wo(5,5) = 0.05^2;
+    Wi=eye(4);
+%     Wi(1,1) = 0.1^2;%;Wi(2,2) = 1^2;Wi(3,3) = 1^2;Wi(4,4) = 1^2;
+    
+    
+    v = Wo*randn(5,num_step); % sensor noises
 %% Choose control law
-use_observer = 0;% 0: full state feedback. 1: observer feedback.
+use_observer = 1;% 0: full state feedback. 1: observer feedback.
 % also, if no observer is designed in the chosen control law, get
 % controller returns obsv_dynamics as empty, and observer is ignored in
 % integration loop
+
+use_noise = 0;
 
 %     ctrl_law_str = 'joint_space_fb_lin';
 %     ctrl_law_str = 'joint_space_fb_lin_with_ball';
@@ -114,7 +131,7 @@ use_observer = 0;% 0: full state feedback. 1: observer feedback.
     fprintf(['\nChosen control law: ' ctrl_law_str '\n\n']) 
     
     % outputs function handle to be used during Euler integration (for loop below)
-    [control_law, obsv_dynamics] = get_controller(zf, p_estim, ctrl_law_str);
+    [control_law, obsv_dynamics,int_dynamics] = get_controller(zf, p_estim, ctrl_law_str,Cob,Wo,Wi);
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -124,24 +141,29 @@ use_observer = 0;% 0: full state feedback. 1: observer feedback.
 
 %% Perform Euler Integration    
     for i = 1:num_step
-        %integral state (additional states)
-        % DON'T delete this is unfinished stuff
-%         C = zeros(2,10);
-%         C(1,2) = 1;
-%         C(2,3) = 1;
-%         dz_add = qf(2:3)-C*z_out(:, i);
-%         z_add(:,i+1) = dz_add*dt;
         
 
-        % Compute Controls
-        if use_observer == 1 && ~isempty(obsv_dynamics)
+
+        % choose which states to feed back
+        if use_observer == 1 && ~isempty(obsv_dynamics)% feed back observer states
             z_ctrl = z_hat_out(:,i);
-        else
+        else % full state feedback
             z_ctrl = z_out(:, i);
         end
-
+        
+        % compute integral states if any
+        if ~isempty(int_dynamics)
+            z_ctrl = [z_ctrl;z_int(:,i)]; % append integral states
+            dz_int = int_dynamics(z_ctrl);
+            
+            %integral state (for lqi controllers)
+            z_int(:,i+1) = dz_int*dt; % integrate error
+        end
+        
+        
+        
+        % Compute Controls
         % get control input for this timestep
-%         u_out(:, i) = control_law(tspan(i), [z_out(:, i);z_add(:,i)]);
         u_out(:, i) = control_law(tspan(i), z_ctrl);
         % u_out(:, i) = zeros(4, 1);
         
@@ -155,10 +177,11 @@ use_observer = 0;% 0: full state feedback. 1: observer feedback.
         z_out(:, i + 1) = z_out(:, i) + dz*dt;
         dz_out(:, i) = dz;
         
-        % observer dynamics
+        % integrate observer dynamics
         if use_observer == 1 && ~isempty(obsv_dynamics)
             % measurements
-            y = Cob*z_out(:,i); 
+            y = Cob*z_out(:,i) + v(:,i)*use_noise;
+
             dz_hat_out(:,i) = obsv_dynamics(y,z_hat_out(:,i), u_out(:, i));
             z_hat_out(:, i + 1) = z_hat_out(:, i) + dz_hat_out(:,i)*dt;
         end
@@ -256,11 +279,11 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
         z = x(:, i); % state
         keypoints = keypoints_arm(z, p); % defining parts of arm
 
-        rA = keypoints(:, 1); % center of mass (which is at 0) of cart
-        rB = keypoints(:, 2); % where link 1 and 2 meet
-        rC = keypoints(:, 3); % where link 2 and 3 meet
-        rD = keypoints(:, 4); % right side of plate(3)
-        rE = keypoints(:, 5); % left side of plate(3)
+        rA = real(keypoints(:, 1)); % center of mass (which is at 0) of cart
+        rB = real(keypoints(:, 2)); % where link 1 and 2 meet
+        rC = real(keypoints(:, 3)); % where link 2 and 3 meet
+        rD = real(keypoints(:, 4)); % right side of plate(3)
+        rE = real(keypoints(:, 5)); % left side of plate(3)
 
         set(h_title,'String',  sprintf('t = %.2f', t) ); % update title (time)
         
@@ -301,8 +324,8 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
 %         set(ballPlot,'XData',[rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))])
 %         set(ballPlot,'YData',[rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))])
 
-        set(ballPlot, 'XData', xcenter,'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',10);
-        set(ballPlot, 'YData', ycenter);%,'Marker','o','MarkerFaceColor','r','color','r');
+        set(ballPlot, 'XData', real(xcenter),'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',10);
+        set(ballPlot, 'YData', real(ycenter));%,'Marker','o','MarkerFaceColor','r','color','r');
 
         pause(0.1) % wait, draw next frame
     end

@@ -1,4 +1,4 @@
-function [control_law, observer_dynamics] = get_controller(zf, p_model, chosen_ctrl_str)
+function [control_law, observer_dynamics,int_dynamics] = get_controller(zf, p_model, chosen_ctrl_str,Cob,Wo,Wi)
 % get_controller: returns function handle that calculates control input
 % according to the desired control law
 %
@@ -10,10 +10,15 @@ function [control_law, observer_dynamics] = get_controller(zf, p_model, chosen_c
 % OUTPUTS
 % control_law: function handle to calculate control input at each step
 % observer_dynamics     : function handle to calculate observer dynamics, to be integrated in the main loop.
-% observer/kalman filter state, etc.
+                            % observer/kalman filter state, etc.
+% int_dyanamics : integral dyanmics for integrators (for lqi for instance)
 
-observer_dynamics = []; % initialize as empty. Will be overwritten by fcn 
-%handle only if an observer is designed.
+
+% initialize as empty. Will be overwritten by a fcn 
+%handle only if an observer is designed/integral states are added (lqi).
+
+observer_dynamics = [];
+int_dynamics = [];
 
 switch chosen_ctrl_str
     
@@ -115,16 +120,7 @@ switch chosen_ctrl_str
         
 %--------------------------- observer design ---------------------------- %
         obs_poles = eig(A-B*K)*3;
-        Cob = zeros(5,nState);    
-        % measure joint angles
-        Cob(1,1) = 1;
-        Cob(2,2) = 1;
-        Cob(3,3) = 1;
-        Cob(4,4) = 1;
-        
-        % measure ball position
-        Cob(5,9) = 1;
-        
+     
         % pole placement (replace by Kalman later)
         L = place(A',Cob',obs_poles)';
         p_obsv.L = L;
@@ -157,25 +153,25 @@ switch chosen_ctrl_str
         % Q matrix
         Q = eye(nState+2);   %2 additional integral states
         
-        Q(1,1) = 1/(0.1^2);
-        Q(2,2) = (1/deg2rad(10))^2;
-        Q(3,3) = (1/deg2rad(10))^2;
+        Q(1,1) = 1/(0.25^2);
+        Q(2,2) = (1/deg2rad(5))^2;
+        Q(3,3) = (1/deg2rad(5))^2;
         Q(4,4) = (1/deg2rad(10))^2;
         
-        Q(5,5) = (1/2)^2; % forward cart velocity 
-        Q(6,6) = (1/50)^2;% 30 rad/s ~= 300 rpm
-        Q(7,7) = (1/50)^2;
-        Q(8,8) = (1/50)^2;
+        Q(5,5) = (1/3)^2; % forward cart velocity 
+        Q(6,6) = (1/100)^2;% 30 rad/s ~= 300 rpm
+        Q(7,7) = (1/100)^2;
+        Q(8,8) = (1/100)^2;
 
         
         Q(9,9) = 1/(0.1^2);
         Q(10,10)=(1/1^2);
-        Q(11,11) = 100; % integral states
-        Q(12,12) = 100; % integral states
+        Q(11,11) = 5000; % integral states
+        Q(12,12) = 5000; % integral states
 
         % R matrix
         R = zeros(nInputs);
-        R(1,1) = 1/(0.1^2);
+        R(1,1) = 1/(0.4^2);
         R(2,2) = 1/(0.5^2);
         R(3,3) = 1/(3^2);
         R(4,4) = 1/(10^2);
@@ -189,7 +185,14 @@ switch chosen_ctrl_str
         B_aug = [B;zeros(2,4)];
 
         K = lqr(A_aug, B_aug, Q, R); % lqr gains
-
+        
+%         des_poles = eig(A_aug-B_aug*K);
+%         des_poles(7:8) = [ -0.9 + 0.8797i; -0.9- 0.8797i]; 
+%         K = place(A_aug, B_aug,des_poles);
+%         sysOL = ss(A,B,eye(nState),0);
+%         sysOL_lqi = ss(A_aug,B_aug,eye(nState+2),0);
+%         sysCL_lqi = ss(A_aug-B_aug*K,B_aug,eye(nState+2),0);
+        
         p_ctrl_fl.lqi_gain = K;
         kr_q = zeros(4);%-inv(C([1:4], 1:10)*inv(A - B*K)*B);
         p_ctrl_fl.kr = kr_q; %-inv(C*inv(A - B*K_fl)*B); % scale the reference appropriately
@@ -199,8 +202,38 @@ switch chosen_ctrl_str
         p_ctrl_fl.zf = [zf;0;0]; % desired final state, augmented by two integral states
 
         control_law = @(t,z) control_law_feedback_linearization_with_ball_lqi(t, z, p_model, p_ctrl_fl);
-               
-    
+        
+        % ------------------ Integral dynamics -------------------%
+        Cint = zeros(2,12);
+        Cint(1,2) = 1;
+        Cint(2,3) = 1;
+        
+        int_dynamics  = @(z)  (zf(2:3)-Cint*z);
+        
+        
+        % ------------------ Observer Dynamics -----------------------%
+        
+        
+        obs_poles = eig(A_aug-B_aug*K)*5;
+        obs_poles = obs_poles(1:10);
+%         Cob_aug = [Cob zeros(5,2)];
+        % pole placement (replace by Kalman later)
+%         G=B(:,1);
+%           G = zeros(10,1);G(1) =1;
+%         N=zeros(4,5)
+%         L = lqe(A,G,Cob,Wi(1,1),Wo);
+%         sys = ss(A,[G],Cob,0);
+%         L = kalman(sys,Wi(1,1),Wo)
+%         [kest,L_opt,SIGMA] = kalman(ss(A,eye(10,4),Cob,[]),eye(4,4),Wo);
+        
+        L = place(A',Cob',obs_poles)';
+        p_obsv.L = L;
+        p_obsv.A = A;
+        p_obsv.B = B;
+        p_obsv.C = Cob;
+        p_obsv.zf = zf;%p_ctrl_fl.zf; % augmented desired 
+        observer_dynamics = @(y,x_hat,u)  obsv_feedback_linearization_with_ball(y,x_hat,u,p_model,p_obsv);
+                
     % design lqr for feedback-linearized system in operational space
     case 'operational_space_fb_lin'
     % design lqr for feedback-linearized system in operational space

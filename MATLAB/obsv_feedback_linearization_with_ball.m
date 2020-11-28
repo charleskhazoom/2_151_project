@@ -13,4 +13,4 @@ G = Grav_arm(x_hat, p); % Gravity matrix
 w = (M^-1)*(u -V - G);
 
 % compute observer dynamics to be integrated
-dz_hat = (A - L*C)*(x_hat-zf) +B*w + L*(y-C*zf);
+dz_hat = (A - L*C)*(x_hat-zf) + B*w + L*(y-C*zf);

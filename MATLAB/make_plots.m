@@ -96,12 +96,18 @@ function make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_along
 
     % observed states vs real states
     if use_observer==1
+        str_list = {'$x$', '$q_1$','$q_2$','$q_3$', '$\dot{x}$','$\dot{q}_1$',...
+            '$\dot{q}_2$','$\dot{q}_3$','$x_{ball}$','$\dot{x}_{ball}$'};
         figure(11);
-        plot(tspan, z_out','-');hold on;
-        plot(tspan, z_hat_out(:,1:end-1)','--');
-        %     legend('System States', 'Estimated States');
+        clf;        
+        for k = 1:10
+        subplot(5,2,k)
+        plot(tspan, z_out(k,:)','-');hold on;
+        plot(tspan, z_hat_out(k,1:end-1)','--');
+%         title(str_list{k}, 'Interpreter','latex')
+        title(str_list{k}, 'Interpreter','latex')
+        end
         xlabel('Time (s)');
-        title('State Estimation');
     end
     
 end
