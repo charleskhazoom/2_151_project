@@ -9,14 +9,16 @@ function [control_law, observer_dynamics] = get_controller(zf, p_model, chosen_c
 %
 % OUTPUTS
 % control_law: function handle to calculate control input at each step
-% dz_new     : new state derivative to be integrate in the main integration loop
-% for the controller to work. New states can come from integral state (for integral action),
+% observer_dynamics     : function handle to calculate observer dynamics, to be integrated in the main loop.
 % observer/kalman filter state, etc.
+
+observer_dynamics = []; % initialize as empty. Will be overwritten by fcn 
+%handle only if an observer is designed.
+
 switch chosen_ctrl_str
     
     case 'joint_space_fb_lin'
-            % design lqr for feedback-linearized system
-
+        % design lqr for feedback-linearized system
         nDof = 4;
         nState = nDof*2;
         
@@ -48,23 +50,24 @@ switch chosen_ctrl_str
         p_ctrl_fl.zf = zf; % desired final state
         
         control_law = @(t,z) control_law_feedback_linearization(t, z, p_model, p_ctrl_fl);
+        
     case 'joint_space_fb_lin_with_ball'
-        % design lqr for feedback-linearized system
+    % design lqr for feedback-linearized system
         nDof = 5;
         nInputs = 4;
         
         nState = nDof*2;
         
         % feedback linearized dyanmics of arm only
-        Afl = [zeros(nDof-1) eye(nDof-1); zeros(nDof-1) zeros(nDof-1)];
+        Afl = [zeros(nDof - 1) eye(nDof - 1); zeros(nDof - 1) zeros(nDof - 1)];
         Bfl = [zeros(nInputs); eye(nInputs)];
         
         % linearize ball dynamics wrt input qdd and state
-        u_equi = [0;0;0;0]; % inputs at equilibrium = no joint acceleration
+        u_equi = [0; 0; 0; 0]; % inputs at equilibrium = no joint acceleration
         [Aball, Bball] = linearize_ball_dynamics(zf, u_equi, p_model);
         
-        A = [Afl zeros(8,2);Aball];
-        B = [Bfl;Bball];
+        A = [Afl zeros(8, 2); Aball];
+        B = [Bfl; Bball];
         
 %         C = eye(nState); % full state feedback for identity matrix, only measure (x,y)
         assert(rank(ctrb(A, B)) == length(A), 'System is not controllable\n'); % check controllability
@@ -85,14 +88,17 @@ switch chosen_ctrl_str
         
         Q(9,9) = 1/(0.1^2);
         Q(10,10)=(1/1^2);
+
 %         Q(2, 2) = 1000;
 
         % R matrix
         R = zeros(nInputs);
+
         R(1,1) = 1/(0.3^2);
         R(2,2) = 1/(0.5^2);
         R(3,3) = 1/(3^2);
         R(4,4) = 1/(10^2);
+
 
         K = lqr(A, B, Q, R); % lqr gains
 
@@ -149,7 +155,6 @@ switch chosen_ctrl_str
         assert(rank(ctrb(A, B)) == length(A), 'System is not controllable\n'); % check controllability
 
         % Q matrix
-        
         Q = eye(nState+2);   %2 additional integral states
         
         Q(1,1) = 1/(0.1^2);
@@ -165,8 +170,8 @@ switch chosen_ctrl_str
         
         Q(9,9) = 1/(0.1^2);
         Q(10,10)=(1/1^2);
-        Q(11,11) = 1000;
-        Q(12,12) = 1000;
+        Q(11,11) = 100; % integral states
+        Q(12,12) = 100; % integral states
 
         % R matrix
         R = zeros(nInputs);
@@ -178,13 +183,10 @@ switch chosen_ctrl_str
         C = zeros(2,nState);
         C(1,2) = 1;
         C(2,3) = 1;
-%         C(3,4) = 1;
 
         
         A_aug = [A zeros(10,2);-C zeros(2,2)];
         B_aug = [B;zeros(2,4)];
-%         sys = ss(A,B,C,0);
-%         K = lqi(sys,Q,R);
 
         K = lqr(A_aug, B_aug, Q, R); % lqr gains
 
@@ -197,12 +199,11 @@ switch chosen_ctrl_str
         p_ctrl_fl.zf = [zf;0;0]; % desired final state, augmented by two integral states
 
         control_law = @(t,z) control_law_feedback_linearization_with_ball_lqi(t, z, p_model, p_ctrl_fl);
-        
-
-        
+               
     
     % design lqr for feedback-linearized system in operational space
     case 'operational_space_fb_lin'
+    % design lqr for feedback-linearized system in operational space
         nDof = 2;
         nState = nDof*2;
         
@@ -230,8 +231,8 @@ switch chosen_ctrl_str
 
         control_law = @(t,z) control_law_fb_lin_op_sp(t, z, p_model, p_ctrl);
 
-    % design standard lqr towards desired final state
     case 'standard_lqr'
+    % design standard lqr towards desired final state
         zf = zf(1:8); % ignore ball states
 
         % tangent linearization of dynamics about final desired position

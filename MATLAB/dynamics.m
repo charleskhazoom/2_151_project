@@ -11,12 +11,12 @@ function dz = dynamics(t, z, u, p)
 % OUTPUTS
 % dz: rate of change of state (system dynamics)
     
-    % Get system matrix
-    A = A_arm(z,p);
+    % Get mass matrix
+    A = A_arm(z, p);
      
     % Get b = Q - V(q,qd) - G(q)
-    % Input weighting matrix
-    b = b_arm(z,u,p);
+    % non-acceleration terms
+    b = b_arm(z, u, p);
     
     % Solve for qdd (acceleration term)
     qdd = A\b;
@@ -29,7 +29,7 @@ function dz = dynamics(t, z, u, p)
     % for the ball
     if (length(z) == 8)
     elseif (length(z) == 10)
-        dz_ball = ball_dynamics(t,z,qdd,p);
+        dz_ball = ball_dynamics(t, z, qdd, p);
         dz(9) = dz_ball(1);
         dz(10) = dz_ball(2);
 

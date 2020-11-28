@@ -20,7 +20,7 @@ function u = control_law_feedback_linearization_with_ball_lqi(t, z, p, p_ctrl)
     V = Corr_arm(z, p); % Coriolis matrix
     G = Grav_arm(z, p); % Gravity matrix
     
-    r = zf(1:4); % desired new equilibrium point 
+%     r = zf(1:4); % desired new equilibrium point 
 %     w = kr*r - K_lqi*(z-zf); % do lqi here
     w = -K_lqi*(z-zf); % do lqi here
     u = V + G + M*w; % control input cancels nonlinear dynamics, adds state feedback

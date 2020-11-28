@@ -32,11 +32,11 @@ clear all; clc; %close all;
 %     mu = 0.25; % coefficient of friction between ball and platform
 
 %% Parameter vector (real system)
-    p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]'; % parameters vector
+    p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g k]'; % parameters vector
 
 %% Parameter vector (estimated system)
-    p_estim = p;
 
+    p_estim = p*1.00; % estimate parameter vector
     mass_error = 1; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
     
@@ -45,7 +45,8 @@ clear all; clc; %close all;
     numInputs = 4; % [f_cart, t_joint1, t_joint2, t_joint3]'
 
     dt = 0.001; % timestep, sec
-    tf = 10; % % final time, sec (change if 10 seconds not enough to complete task)
+
+    tf = 5; % % final time, sec (change if not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
@@ -63,9 +64,9 @@ clear all; clc; %close all;
     zf = [qf; 0; 0; 0; 0; 0; 0]; % final state, consider if you can't overconstrain ball final state
     
     fprintf(['\nFinal State\nx_cart: ' num2str(qf(1)) ' m\n' ...
-        'theta_1:' num2str(qf(2)) ' rad\n' ...
-        'theta_2:' num2str(qf(3)) ' rad\n' ...
-        'theta_3:' num2str(qf(4)) ' rad\n']);
+        'theta_1: ' num2str(qf(2)) ' rad\n' ...
+        'theta_2: ' num2str(qf(3)) ' rad\n' ...
+        'theta_3: ' num2str(qf(4)) ' rad\n']);
     
     z_out = zeros(numStates, num_step);
     z_out(:, 1) = z0;
@@ -76,6 +77,7 @@ clear all; clc; %close all;
     
     dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
     dz_hat_out = zeros(numStates, num_step);% store rate of change of observer states at each time step
+
     u_out = zeros(numInputs, num_step); % store control input at each time step 
     
     z_add = zeros(2, num_step);% additional states from observer or integral states;
@@ -96,17 +98,20 @@ clear all; clc; %close all;
     Cob(5,9) = 1;
 
 %% Choose control law
-use_observer = 1;% 0: full state feedback. 1: observer feedback.
-
+use_observer = 0;% 0: full state feedback. 1: observer feedback.
+% also, if no observer is designed in the chosen control law, get
+% controller returns obsv_dynamics as empty, and observer is ignored in
+% integration loop
 
 %     ctrl_law_str = 'joint_space_fb_lin';
-    ctrl_law_str = 'joint_space_fb_lin_with_ball';
-%       ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
+%     ctrl_law_str = 'joint_space_fb_lin_with_ball';
+      ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
 
-    
+
 %     ctrl_law_str = 'operational_space_fb_lin';
 %     ctrl_law_str = 'standard_lqr';
-    fprintf(['\nChosen control law: ' ctrl_law_str '\n']) 
+    
+    fprintf(['\nChosen control law: ' ctrl_law_str '\n\n']) 
     
     % outputs function handle to be used during Euler integration (for loop below)
     [control_law, obsv_dynamics] = get_controller(zf, p_estim, ctrl_law_str);
@@ -129,7 +134,7 @@ use_observer = 1;% 0: full state feedback. 1: observer feedback.
         
 
         % Compute Controls
-        if use_observer == 1
+        if use_observer == 1 && ~isempty(obsv_dynamics)
             z_ctrl = z_hat_out(:,i);
         else
             z_ctrl = z_out(:, i);
@@ -141,6 +146,7 @@ use_observer = 1;% 0: full state feedback. 1: observer feedback.
         % u_out(:, i) = zeros(4, 1);
         
 
+
         
         % calculate dz, change in state variables
         dz = dynamics(tspan(i), z_out(:, i), u_out(:, i), p);
@@ -150,16 +156,17 @@ use_observer = 1;% 0: full state feedback. 1: observer feedback.
         dz_out(:, i) = dz;
         
         % observer dynamics
-        if use_observer == 1
+        if use_observer == 1 && ~isempty(obsv_dynamics)
             % measurements
             y = Cob*z_out(:,i); 
             dz_hat_out(:,i) = obsv_dynamics(y,z_hat_out(:,i), u_out(:, i));
             z_hat_out(:, i + 1) = z_hat_out(:, i) + dz_hat_out(:,i)*dt;
         end
         
+        % Arent these lines redundant from 4 lines up?
         % Position update
-        z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
-        z_out(9, i + 1) = z_out(9, i) + z_out(10, i + 1)*dt; % ball
+%         z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
+%         z_out(9, i + 1) = z_out(9, i) + z_out(10, i + 1)*dt; % ball
         
         % Ball Simulation
         theta = z_out(2, i) + z_out(3, i) - 90/180*pi + z_out(4, i); % plate angle
@@ -180,7 +187,8 @@ use_observer = 1;% 0: full state feedback. 1: observer feedback.
     ball_alongPlate = ball_alongPlate(:, 1:end - 1);
     
 %% Look at Results
-    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,use_observer);
+    plot_obsv = use_observer && ~isempty(obsv_dynamics);
+    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,plot_obsv);
 
     rE = zeros(2, length(tspan)); % end effector position
     vE = zeros(2, length(tspan)); % end effector velocity
