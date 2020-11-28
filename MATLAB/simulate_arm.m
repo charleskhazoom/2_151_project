@@ -35,7 +35,7 @@ clear all; clc; %close all;
     p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g]'; % parameters vector
 
 %% Parameter vector (estimated system)
-    p_estim = p*1.00;
+    p_estim = p;
 
     mass_error = 1; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
@@ -45,7 +45,7 @@ clear all; clc; %close all;
     numInputs = 4; % [f_cart, t_joint1, t_joint2, t_joint3]'
 
     dt = 0.001; % timestep, sec
-    tf = 5; % % final time, sec (change if 10 seconds not enough to complete task)
+    tf = 10; % % final time, sec (change if 10 seconds not enough to complete task)
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
@@ -69,24 +69,47 @@ clear all; clc; %close all;
     
     z_out = zeros(numStates, num_step);
     z_out(:, 1) = z0;
-    dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
     
+    z_hat_out = zeros(numStates, num_step);
+    z_hat_out(:,1) = z0*0.9; % initial observer states
+    
+    
+    dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
+    dz_hat_out = zeros(numStates, num_step);% store rate of change of observer states at each time step
     u_out = zeros(numInputs, num_step); % store control input at each time step 
-
+    
+    z_add = zeros(2, num_step);% additional states from observer or integral states;
+    z_add(:,1) = [0;0]; % initialize to zero; TODO make this more general
+    
     ball_alongPlate = zeros(3, num_step); % ball position over time
     ball_alongPlate(:, 1) = [0; 0; 0];
     accel = zeros(2, num_step); % acceleration of platform
+    %% Measurement matrix C
+    Cob = zeros(5,numStates);
+    % measure joint angles
+    Cob(1,1) = 1;
+    Cob(2,2) = 1;
+    Cob(3,3) = 1;
+    Cob(4,4) = 1;
     
+    % measure ball position
+    Cob(5,9) = 1;
+
 %% Choose control law
+use_observer = 0;% 0: full state feedback. 1: observer feedback.
+
+
 %     ctrl_law_str = 'joint_space_fb_lin';
     ctrl_law_str = 'joint_space_fb_lin_with_ball';
+%       ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
+
     
 %     ctrl_law_str = 'operational_space_fb_lin';
 %     ctrl_law_str = 'standard_lqr';
     fprintf(['\nChosen control law: ' ctrl_law_str '\n']) 
     
     % outputs function handle to be used during Euler integration (for loop below)
-    control_law = get_controller(zf, p_estim, ctrl_law_str);
+    [control_law, obsv_dynamics] = get_controller(zf, p_estim, ctrl_law_str);
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -96,18 +119,43 @@ clear all; clc; %close all;
 
 %% Perform Euler Integration    
     for i = 1:num_step
+        %integral state (additional states)
+        % DON'T delete this is unfinished stuff
+%         C = zeros(2,10);
+%         C(1,2) = 1;
+%         C(2,3) = 1;
+%         dz_add = qf(2:3)-C*z_out(:, i);
+%         z_add(:,i+1) = dz_add*dt;
+        
+
         % Compute Controls
+        if use_observer == 1
+            z_ctrl = z_hat_out(:,i);
+        else
+            z_ctrl = z_out(:, i);
+        end
 
         % get control input for this timestep
-        u_out(:, i) = control_law(tspan(i), z_out(:, i));
+%         u_out(:, i) = control_law(tspan(i), [z_out(:, i);z_add(:,i)]);
+        u_out(:, i) = control_law(tspan(i), z_ctrl);
         % u_out(:, i) = zeros(4, 1);
+        
 
+        
         % calculate dz, change in state variables
         dz = dynamics(tspan(i), z_out(:, i), u_out(:, i), p);
 
         % Forward Euler to calculate next state
         z_out(:, i + 1) = z_out(:, i) + dz*dt;
         dz_out(:, i) = dz;
+        
+        % observer dynamics
+        if use_observer == 1
+            % measurements
+            y = Cob*z_out(:,i); 
+            dz_hat_out(:,i) = obsv_dynamics(y,z_hat_out(:,i), u_out(:, i));
+            z_hat_out(:, i + 1) = z_hat_out(:, i) + dz_hat_out(:,i)*dt;
+        end
         
         % Position update
         z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
@@ -132,7 +180,7 @@ clear all; clc; %close all;
     ball_alongPlate = ball_alongPlate(:, 1:end - 1);
     
 %% Look at Results
-    make_plots(tspan, z_out, u_out, dz_out, ball_alongPlate, accel, p);
+    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,use_observer);
 
     rE = zeros(2, length(tspan)); % end effector position
     vE = zeros(2, length(tspan)); % end effector velocity

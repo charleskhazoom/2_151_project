@@ -1,4 +1,4 @@
-function make_plots(tspan, z_out, u_out, dz_out, ball_alongPlate, accel, p)
+function make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,use_observer)
 % make_plots: plot results from simulation - configurations, velocities,
 % accelerations
 %
@@ -93,4 +93,15 @@ function make_plots(tspan, z_out, u_out, dz_out, ball_alongPlate, accel, p)
     xlabel('Time (s)');
     ylabel('Acceleration (m/secc^2)');
     title('Accleration of Plate in World Frame');
+
+    % observed states vs real states
+    if use_observer==1
+        figure(11);
+        plot(tspan, z_out','-');hold on;
+        plot(tspan, z_hat_out(:,1:end-1)','--');
+        %     legend('System States', 'Estimated States');
+        xlabel('Time (s)');
+        title('State Estimation');
+    end
+    
 end
