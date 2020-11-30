@@ -52,7 +52,7 @@ clear all; clc; %close all;
     
     p_cup_initial = [-0.8, 0.5]'; % initial position of ball (x, y), m
     q0 = eval(invKin_arm(p_cup_initial, p , [0, 0]')); % initial configuration
-    z0 = [q0; 0; 0; 0; 0; 0; 0]; % initial state
+    z0 = [q0; 0; 0; 0; 0; 0.02; 0]; % initial state
     
     fprintf(['Initial State\nx_cart: ' num2str(q0(1)) ' m\n' ...
         'theta_1: ' num2str(q0(2)) ' rad\n' ...
@@ -72,7 +72,7 @@ clear all; clc; %close all;
     z_out(:, 1) = z0;
     
     z_hat_out = zeros(numStates, num_step);
-    z_hat_out(:,1) = z0*0.9; % initial observer states
+    z_hat_out(:,1) = z0*0.95; % initial observer states
     
     
     dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
@@ -107,13 +107,14 @@ clear all; clc; %close all;
     Wo(3,3) = (1/12);
     Wo(4,4) = (1/12);
     Wo(5,5) = 0.05^2;
-    Wi=eye(4);
+%     Wi=eye(10)*0.01^2;
+    Wi = eye(4)*0.1^2;
 %     Wi(1,1) = 0.1^2;%;Wi(2,2) = 1^2;Wi(3,3) = 1^2;Wi(4,4) = 1^2;
     
     
     v = Wo*randn(5,num_step); % sensor noises
 %% Choose control law
-use_observer = 1;% 0: full state feedback. 1: observer feedback.
+use_observer = 0;% 0: full state feedback. 1: observer feedback.
 % also, if no observer is designed in the chosen control law, get
 % controller returns obsv_dynamics as empty, and observer is ignored in
 % integration loop
@@ -122,7 +123,7 @@ use_noise = 0;
 
 %     ctrl_law_str = 'joint_space_fb_lin';
 %     ctrl_law_str = 'joint_space_fb_lin_with_ball';
-      ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
+       ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
 
 
 %     ctrl_law_str = 'operational_space_fb_lin';
@@ -211,7 +212,7 @@ use_noise = 0;
     
 %% Look at Results
     plot_obsv = use_observer && ~isempty(obsv_dynamics);
-    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,plot_obsv);
+    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,plot_obsv,zf);
 
     rE = zeros(2, length(tspan)); % end effector position
     vE = zeros(2, length(tspan)); % end effector velocity
@@ -225,11 +226,12 @@ use_noise = 0;
     figure(7); clf;
     theta = z_out(2, :) + z_out(3, :) - 90/180*pi + z_out(4, :); % plate angle
     hold on
-    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, p_cup_initial, p_cup_final);
+    keep_frames=0;
+    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, p_cup_initial, p_cup_final,keep_frames);
     
 end
 
-function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
+function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos,keep_frames)
 % animateSol: animate robot and ball positions over time using evolution of
 % the states and control found above
 %
@@ -265,18 +267,52 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
     h_title = title('t = 0.0 s');
     
     axis equal
-    axis([-1 1 -1 1]);
+    axis([-1 1 -0.1 1]);
+     
+     seg1x = [];
+     seg1y = [];
+     seg2x = [];
+     seg2y = [];
 
+     seg3x = [];
+     seg3y = [];
+     
+     seg4x = [];
+     seg4y = [];
+     seg5x = [];
+     seg5y = [];
+     
+     seg6x = [];
+     seg6y = [];
+     seg7x = [];
+     seg7y = [];
+     ball_traj = [];
+     col = [0.3 0.3 0.3];
     % Step through and update animation
+    k=1;
     for i = 1:length(tspan)
+        
       
         % skip eac 50th frame.
         if mod(i,50)
             continue;
         end
-        
+        k=k+1;
         t = tspan(i); % time
         z = x(:, i); % state
+        
+    if keep_frames    
+        for j = 1:length(seg1x)/2
+%             plot(seg1x(2*j-1:2*j),seg1y(2*j-1:2*j),'color',col);hold on
+%             plot(seg2x(2*j-1:2*j),seg2y(2*j-1:2*j),'color',col);hold on
+%             plot(seg3x(2*j-1:2*j),seg3y(2*j-1:2*j),'color',col);hold on
+%             plot(seg4x(2*j-1:2*j),seg4y(2*j-1:2*j),'color',col);hold on
+            plot(seg5x(2*j-1:2*j),seg5y(2*j-1:2*j),'color',col);hold on
+            plot(seg6x(2*j-1:2*j),seg6y(2*j-1:2*j),'color',col);hold on
+            plot(seg7x(2*j-1:2*j),seg7y(2*j-1:2*j),'color',col);hold on
+
+        end
+    end 
         keypoints = keypoints_arm(z, p); % defining parts of arm
 
         rA = real(keypoints(:, 1)); % center of mass (which is at 0) of cart
@@ -320,13 +356,41 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos)
          ball = z(9); % ball position
         xcenter  = mean([rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))]);
         ycenter  = mean([rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))]);
-        
+        ball_traj = [ball_traj [xcenter;ycenter]];
 %         set(ballPlot,'XData',[rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))])
 %         set(ballPlot,'YData',[rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))])
 
-        set(ballPlot, 'XData', real(xcenter),'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',10);
+        set(ballPlot, 'XData', real(xcenter),'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',12);
         set(ballPlot, 'YData', real(ycenter));%,'Marker','o','MarkerFaceColor','r','color','r');
-
+        if keep_frames
+            
+            if  mod(k,1)==0&&tspan(i)<0.5||mod(k,8)==0&&tspan(i)>=0.5 %keep some frames(i ==1)||(i ==20)||(i ==30)
+                seg1x = [seg1x h_carLSide.XData];
+                seg1y = [seg1y h_carLSide.YData];
+                
+                seg2x = [seg2x h_carRSide.XData];
+                seg2y = [seg2y h_carRSide.YData];
+                
+                seg3x = [seg3x h_carBase.XData];
+                seg3y = [seg3y h_carBase.YData];
+                
+                seg4x = [seg4x h_carTop.XData];
+                seg4y = [seg4y h_carTop.YData];
+                
+                seg5x = [seg5x h_link1.XData];
+                seg5y = [seg5y h_link1.YData];
+                
+                seg6x = [seg6x h_link2.XData];
+                seg6y = [seg6y h_link2.YData];
+                seg7x = [seg7x h_link3.XData];
+                seg7y = [seg7y h_link3.YData];
+            end
+        end
+        if keep_frames
+            
+            plot(ball_traj(1,:),ball_traj(2,:),'--k','linewidth',1.4);
+        end
+        
         pause(0.1) % wait, draw next frame
     end
 end
