@@ -153,25 +153,25 @@ switch chosen_ctrl_str
         % Q matrix
         Q = eye(nState+2);   %2 additional integral states
         
-        Q(1,1) = 1/(0.25^2);
-        Q(2,2) = (1/deg2rad(5))^2;
-        Q(3,3) = (1/deg2rad(5))^2;
-        Q(4,4) = (1/deg2rad(10))^2;
+        Q(1,1) = 1/(0.1^2);
+        Q(2,2) = (1/deg2rad(90))^2;
+        Q(3,3) = (1/deg2rad(90))^2;
+        Q(4,4) = (1/deg2rad(90))^2;
         
-        Q(5,5) = (1/3)^2; % forward cart velocity 
-        Q(6,6) = (1/100)^2;% 30 rad/s ~= 300 rpm
-        Q(7,7) = (1/100)^2;
-        Q(8,8) = (1/100)^2;
+        Q(5,5) = (1/10)^2; % forward cart velocity 
+        Q(6,6) = (1/80)^2;% 30 rad/s ~= 300 rpm
+        Q(7,7) = (1/80)^2;
+        Q(8,8) = (1/80)^2;
 
         
-        Q(9,9) = 1/(0.1^2);
-        Q(10,10)=(1/1^2);
+        Q(9,9) = 1/(0.2^2);
+        Q(10,10)=(1/2^2);
         Q(11,11) = 5000; % integral states
         Q(12,12) = 5000; % integral states
 
         % R matrix
         R = zeros(nInputs);
-        R(1,1) = 1/(0.4^2);
+        R(1,1) = 1/(0.25^2);
         R(2,2) = 1/(0.5^2);
         R(3,3) = 1/(3^2);
         R(4,4) = 1/(10^2);
@@ -214,14 +214,23 @@ switch chosen_ctrl_str
         % ------------------ Observer Dynamics -----------------------%
         
         
-        obs_poles = eig(A_aug-B_aug*K)*5;
-        obs_poles = obs_poles(1:10);
+%          obs_poles = eig(A_aug-B_aug*K)*5;
+%         obs_poles = [-26.2458+26.6328i,...
+%             -26.2458-26.6328i,-19.4203+26.4199i,...
+%             -19.4203-26.4199i,-24.8976+0.0000i,-4.4256+4.3987i, -4.4256-4.3987i,...
+%             -9.2173+14.3300i,-9.2173-14.3300i,-15]*2;
+%          -10.7147 +24.0728i
+ obs_poles = [-10.7147+24.0728i;-10.7147-24.0728i;-23.7867+9.7110i;-23.7867-9.7110i;-9.9250+17.3362i;...
+     -9.9250-17.3362i;-20.1056+0.0000i;-5.6026+9.6764i;-5.6026-9.6764i;-11.1640+0.0000i];
+
+ %  obs_poles = obs_poles(1:10);
 %         Cob_aug = [Cob zeros(5,2)];
         % pole placement (replace by Kalman later)
 %         G=B(:,1);
+%         G= eye(10,4);
 %           G = zeros(10,1);G(1) =1;
 %         N=zeros(4,5)
-%         L = lqe(A,G,Cob,Wi(1,1),Wo);
+%         L = lqe(A,G,Cob,Wi,Wo);
 %         sys = ss(A,[G],Cob,0);
 %         L = kalman(sys,Wi(1,1),Wo)
 %         [kest,L_opt,SIGMA] = kalman(ss(A,eye(10,4),Cob,[]),eye(4,4),Wo);
