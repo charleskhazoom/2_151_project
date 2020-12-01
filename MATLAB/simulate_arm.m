@@ -35,7 +35,6 @@ clear all; clc; %close all;
     p = [m_cart m1 m2 m3 h_cart l_cart l_1 l_2 l_3 g k]'; % parameters vector
 
 %% Parameter vector (estimated system)
-
     p_estim = p; % estimate parameter vector
     mass_error = 1.05; % assume all masses are estimated incorrectly by some percentage
     p_estim(1:4) = p_estim(1:4)*mass_error;
@@ -72,67 +71,65 @@ clear all; clc; %close all;
     z_out(:, 1) = z0;
     
     z_hat_out = zeros(numStates, num_step);
-    z_hat_out(:,1) = z0*0.95; % initial observer states
-    
+    z_hat_out(:, 1) = z0*0.95; % initial observer states
     
     dz_out = zeros(numStates, num_step); % store rate of change of states at each time step
-    dz_hat_out = zeros(numStates, num_step);% store rate of change of observer states at each time step
+    dz_hat_out = zeros(numStates, num_step); % store rate of change of observer states at each time step
 
     u_out = zeros(numInputs, num_step); % store control input at each time step 
     
-    z_int = zeros(2, num_step);% integral states for lqi controllers;
-    z_int(:,1) = [0;0]; % initialize to zero; 
+    z_int = zeros(2, num_step); % integral states for lqi controllers;
+    z_int(:, 1) = [0; 0]; % initialize to zero; 
     
     ball_alongPlate = zeros(3, num_step); % ball position over time
     ball_alongPlate(:, 1) = [0; 0; 0];
     accel = zeros(2, num_step); % acceleration of platform
-    %% Measurement matrix C
     
-    Cob = zeros(5,numStates);
-    % measure joint angles
-    Cob(1,1) = 1;
-    Cob(2,2) = 1;
-    Cob(3,3) = 1;
-    Cob(4,4) = 1;
-    
-    % measure ball position
-    Cob(5,9) = 1;
+%% Measurement matrix C
+    % measure cart position, joint angles, ball position
+    Cob = zeros(5, numStates);
+    Cob(1, 1) = 1;
+    Cob(2, 2) = 1;
+    Cob(3, 3) = 1;
+    Cob(4, 4) = 1;
+    Cob(5, 9) = 1;
     
     % I don't know how to implement a kalman filter here. I Cant' get the
     % kalman() to output a solution... Why?
     % noise covariance Wo
     Wo = zeros(5);
-    Wo(1,1) = (1/12)*0.2;
-    Wo(2,2) = (1/12);
-    Wo(3,3) = (1/12);
-    Wo(4,4) = (1/12);
-    Wo(5,5) = 0.05^2;
-%     Wi=eye(10)*0.01^2;
+    Wo(1, 1) = (1/12)*0.2;
+    Wo(2, 2) = (1/12);
+    Wo(3, 3) = (1/12);
+    Wo(4, 4) = (1/12);
+    Wo(5, 5) = (0.05)^2;
+%     Wi = eye(10)*0.01^2;
     Wi = eye(4)*0.1^2;
-%     Wi(1,1) = 0.1^2;%;Wi(2,2) = 1^2;Wi(3,3) = 1^2;Wi(4,4) = 1^2;
+%     Wi(1, 1) = 0.1^2; Wi(2, 2) = 1^2; Wi(3, 3) = 1^2; Wi(4, 4) = 1^2;
     
+    v = Wo*randn(5, num_step); % sensor noises
     
-    v = Wo*randn(5,num_step); % sensor noises
 %% Choose control law
-use_observer = 0;% 0: full state feedback. 1: observer feedback.
-% also, if no observer is designed in the chosen control law, get
-% controller returns obsv_dynamics as empty, and observer is ignored in
-% integration loop
+    use_observer = 0; % 0: full state feedback. 1: observer feedback.
+    % also, if no observer is designed in the chosen control law, get
+    % controller returns obsv_dynamics as empty, and observer is ignored in
+    % integration loop
 
-use_noise = 0;
+    use_noise = 0; % 0: no noise. 1: Gaussian noise.
 
 %     ctrl_law_str = 'joint_space_fb_lin';
 %     ctrl_law_str = 'joint_space_fb_lin_with_ball';
-       ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
-
+%     ctrl_law_str = 'joint_space_fb_lin_with_ball_lqi';
 
 %     ctrl_law_str = 'operational_space_fb_lin';
-%     ctrl_law_str = 'standard_lqr';
+    ctrl_law_str = 'standard_lqr';
     
-    fprintf(['\nChosen control law: ' ctrl_law_str '\n\n']) 
+    fprintf(['\nChosen control law: ' ctrl_law_str '\n']) 
+    fprintf(['Using observer: ' num2str(use_observer) '\n'])
+    fprintf(['Using noise: ' num2str(use_noise) '\n'])
     
     % outputs function handle to be used during Euler integration (for loop below)
-    [control_law, obsv_dynamics,int_dynamics] = get_controller(zf, p_estim, ctrl_law_str,Cob,Wo,Wi);
+    [control_law, obsv_dynamics, int_dynamics] = get_controller(zf, p_estim, ctrl_law_str, Cob, Wo, Wi);
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -142,34 +139,26 @@ use_noise = 0;
 
 %% Perform Euler Integration    
     for i = 1:num_step
-        
-
 
         % choose which states to feed back
-        if use_observer == 1 && ~isempty(obsv_dynamics)% feed back observer states
-            z_ctrl = z_hat_out(:,i);
+        if use_observer && ~isempty(obsv_dynamics) % feed back observer states
+            z_ctrl = z_hat_out(:, i);
         else % full state feedback
             z_ctrl = z_out(:, i);
         end
         
-        % compute integral states if any
+        % compute integral states (if any)
         if ~isempty(int_dynamics)
-            z_ctrl = [z_ctrl;z_int(:,i)]; % append integral states
+            z_ctrl = [z_ctrl; z_int(:, i)]; % append integral states
             dz_int = int_dynamics(z_ctrl);
             
             %integral state (for lqi controllers)
-            z_int(:,i+1) = dz_int*dt; % integrate error
+            z_int(:, i + 1) = dz_int*dt; % integrate error
         end
-        
-        
         
         % Compute Controls
         % get control input for this timestep
         u_out(:, i) = control_law(tspan(i), z_ctrl);
-        % u_out(:, i) = zeros(4, 1);
-        
-
-
         
         % calculate dz, change in state variables
         dz = dynamics(tspan(i), z_out(:, i), u_out(:, i), p);
@@ -179,21 +168,16 @@ use_noise = 0;
         dz_out(:, i) = dz;
         
         % integrate observer dynamics
-        if use_observer == 1 && ~isempty(obsv_dynamics)
+        if use_observer && ~isempty(obsv_dynamics)
             % measurements
-            y = Cob*z_out(:,i) + v(:,i)*use_noise;
+            y = Cob*z_out(:, i) + v(:, i)*use_noise;
 
-            dz_hat_out(:,i) = obsv_dynamics(y,z_hat_out(:,i), u_out(:, i));
-            z_hat_out(:, i + 1) = z_hat_out(:, i) + dz_hat_out(:,i)*dt;
+            dz_hat_out(:, i) = obsv_dynamics(y, z_hat_out(:, i), u_out(:, i));
+            z_hat_out(:, i + 1) = z_hat_out(:, i) + dz_hat_out(:, i)*dt;
         end
         
-        % Arent these lines redundant from 4 lines up?
-        % Position update
-%         z_out(1:4, i + 1) = z_out(1:4, i) + z_out(5:8, i + 1)*dt; % robot
-%         z_out(9, i + 1) = z_out(9, i) + z_out(10, i + 1)*dt; % ball
-        
         % Ball Simulation
-        theta = z_out(2, i) + z_out(3, i) - 90/180*pi + z_out(4, i); % plate angle
+        theta = z_out(2, i) + z_out(3, i) - pi/2 + z_out(4, i); % plate angle
         accel(:, i) = acceleration_endEffector([z_out(1:8, i); dz_out(5:8, i)], p);
         a_x_plate = accel(1, i)*cos(-theta) - accel(2, i)*sin(-theta); % rotate into plate frame
         
@@ -203,7 +187,6 @@ use_noise = 0;
         ball_alongPlate(3, i + 1) = a_b_plate;
         ball_alongPlate(2, i + 1) = ball_alongPlate(2, i) + a_b_plate*dt;
         ball_alongPlate(1, i + 1) = ball_alongPlate(1, i) + ball_alongPlate(2, i + 1)*dt;
-
     end
     
     % final states
@@ -212,7 +195,7 @@ use_noise = 0;
     
 %% Look at Results
     plot_obsv = use_observer && ~isempty(obsv_dynamics);
-    make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,plot_obsv,zf);
+    make_plots(tspan, z_out, u_out, dz_out, z_hat_out, dz_hat_out, ball_alongPlate, accel, p, plot_obsv, zf);
 
     rE = zeros(2, length(tspan)); % end effector position
     vE = zeros(2, length(tspan)); % end effector velocity
@@ -224,173 +207,9 @@ use_noise = 0;
 
 %% Animate Solution
     figure(7); clf;
-    theta = z_out(2, :) + z_out(3, :) - 90/180*pi + z_out(4, :); % plate angle
+    theta = z_out(2, :) + z_out(3, :) - pi/2 + z_out(4, :); % plate angle
     hold on
-    keep_frames=0;
-    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, p_cup_initial, p_cup_final,keep_frames);
+    keep_frames = 0;
+    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, p_cup_initial, p_cup_final, keep_frames);
     
-end
-
-function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos,keep_frames)
-% animateSol: animate robot and ball positions over time using evolution of
-% the states and control found above
-%
-% INPUTS
-% tspan: timespan over simulation was run
-% x: states
-% p: system parameters
-% ballX: ball state
-% rEE: position of end effector
-% theta: platform angle
-% start_pos: initial position
-% final_pos: goal position
-
-    % Prepare plot handles
-    hold on
-    
-    h_ground = plot(linspace(-5, 5, 100), -3*.0254*ones(1, 100), 'k', 'LineWidth', 2); % ground
-    h_carBase = plot([0], [0], 'k', 'LineWidth', 2); % bottom of cart
-    h_carTop = plot([0], [0], 'k', 'LineWidth', 2); % top of cart
-    h_carLSide = plot([0], [0], 'k', 'LineWidth', 2); % left side of cart
-    h_carRSide = plot([0], [0], 'k', 'LineWidth', 2); % right side of cart
-    h_link1 = plot([0], [0], 'LineWidth', 2); % link 1
-    h_link2 = plot([0], [0], 'LineWidth', 2); % link 2
-    h_link3 = plot([0], [0], 'LineWidth', 2); % link 3
-    
-    start = plot(start_pos(1), start_pos(2), 'gx'); % intial position
-    final = plot(final_pos(1), final_pos(2), 'rx'); % final/goal position
-    
-    ballPlot = plot([0], [0], 'LineWidth', 2); % ball position
-    r = 0.1; % ball radius, m (arbitrary)    
-    
-    xlabel('x'); ylabel('y');
-    h_title = title('t = 0.0 s');
-    
-    axis equal
-    axis([-1 1 -0.1 1]);
-     
-     seg1x = [];
-     seg1y = [];
-     seg2x = [];
-     seg2y = [];
-
-     seg3x = [];
-     seg3y = [];
-     
-     seg4x = [];
-     seg4y = [];
-     seg5x = [];
-     seg5y = [];
-     
-     seg6x = [];
-     seg6y = [];
-     seg7x = [];
-     seg7y = [];
-     ball_traj = [];
-     col = [0.3 0.3 0.3];
-    % Step through and update animation
-    k=1;
-    for i = 1:length(tspan)
-        
-      
-        % skip eac 50th frame.
-        if mod(i,50)
-            continue;
-        end
-        k=k+1;
-        t = tspan(i); % time
-        z = x(:, i); % state
-        
-    if keep_frames    
-        for j = 1:length(seg1x)/2
-%             plot(seg1x(2*j-1:2*j),seg1y(2*j-1:2*j),'color',col);hold on
-%             plot(seg2x(2*j-1:2*j),seg2y(2*j-1:2*j),'color',col);hold on
-%             plot(seg3x(2*j-1:2*j),seg3y(2*j-1:2*j),'color',col);hold on
-%             plot(seg4x(2*j-1:2*j),seg4y(2*j-1:2*j),'color',col);hold on
-            plot(seg5x(2*j-1:2*j),seg5y(2*j-1:2*j),'color',col);hold on
-            plot(seg6x(2*j-1:2*j),seg6y(2*j-1:2*j),'color',col);hold on
-            plot(seg7x(2*j-1:2*j),seg7y(2*j-1:2*j),'color',col);hold on
-
-        end
-    end 
-        keypoints = keypoints_arm(z, p); % defining parts of arm
-
-        rA = real(keypoints(:, 1)); % center of mass (which is at 0) of cart
-        rB = real(keypoints(:, 2)); % where link 1 and 2 meet
-        rC = real(keypoints(:, 3)); % where link 2 and 3 meet
-        rD = real(keypoints(:, 4)); % right side of plate(3)
-        rE = real(keypoints(:, 5)); % left side of plate(3)
-
-        set(h_title,'String',  sprintf('t = %.2f', t) ); % update title (time)
-        
-        % plot left side of cart
-        set(h_carLSide, 'XData', [rA(1) - p(6)/2, rA(1) - p(6)/2]);
-        set(h_carLSide, 'YData', [rA(2) - p(5)/2, rA(2) + p(5)/2]);
-        
-        % plot right side of cart
-        set(h_carRSide, 'XData', [rA(1) + p(6)/2, rA(1) + p(6)/2]);
-        set(h_carRSide, 'YData', [rA(2) - p(5)/2, rA(2) + p(5)/2]);
-        
-        % plot bottom of cart
-        set(h_carBase, 'XData', [rA(1) - p(6)/2, rA(1) + p(6)/2]);
-        set(h_carBase, 'YData', [rA(2) - p(5)/2, rA(2) - p(5)/2]);
-        
-        % plot top of cart
-        set(h_carTop, 'XData', [rA(1) - p(6)/2, rA(1) + p(6)/2]);
-        set(h_carTop, 'YData', [rA(2) + p(5)/2, rA(2) + p(5)/2]);
-        
-        % plot link 1
-        set(h_link1, 'XData', [rA(1), rB(1)]);
-        set(h_link1, 'YData', [rA(2), rB(2)]);
-        
-        % plot link 2
-        set(h_link2, 'XData', [rB(1), rC(1)]);
-        set(h_link2, 'YData', [rB(2), rC(2)]);
-        
-        % plot link 3
-        set(h_link3, 'XData', [rE(1), rD(1)]);
-        set(h_link3, 'YData', [rE(2), rD(2)]);
-        
-        % plot ball
-        % ball = ballX(1, i); % check if it works with manual simulation of ball
-         ball = z(9); % ball position
-        xcenter  = mean([rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))]);
-        ycenter  = mean([rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))]);
-        ball_traj = [ball_traj [xcenter;ycenter]];
-%         set(ballPlot,'XData',[rEE(1, i) + ball*cosd(-theta(i)), rEE(1, i) + ball*cosd(-theta(i)) + r*sind(-theta(i))])
-%         set(ballPlot,'YData',[rEE(2, i) - ball*sind(-theta(i)), rEE(2, i) - ball*sind(-theta(i)) + r*cosd(-theta(i))])
-
-        set(ballPlot, 'XData', real(xcenter),'Marker','o','MarkerFaceColor','r','color','r','MarkerSize',12);
-        set(ballPlot, 'YData', real(ycenter));%,'Marker','o','MarkerFaceColor','r','color','r');
-        if keep_frames
-            
-            if  mod(k,1)==0&&tspan(i)<0.5||mod(k,8)==0&&tspan(i)>=0.5 %keep some frames(i ==1)||(i ==20)||(i ==30)
-                seg1x = [seg1x h_carLSide.XData];
-                seg1y = [seg1y h_carLSide.YData];
-                
-                seg2x = [seg2x h_carRSide.XData];
-                seg2y = [seg2y h_carRSide.YData];
-                
-                seg3x = [seg3x h_carBase.XData];
-                seg3y = [seg3y h_carBase.YData];
-                
-                seg4x = [seg4x h_carTop.XData];
-                seg4y = [seg4y h_carTop.YData];
-                
-                seg5x = [seg5x h_link1.XData];
-                seg5y = [seg5y h_link1.YData];
-                
-                seg6x = [seg6x h_link2.XData];
-                seg6y = [seg6y h_link2.YData];
-                seg7x = [seg7x h_link3.XData];
-                seg7y = [seg7y h_link3.YData];
-            end
-        end
-        if keep_frames
-            
-            plot(ball_traj(1,:),ball_traj(2,:),'--k','linewidth',1.4);
-        end
-        
-        pause(0.1) % wait, draw next frame
-    end
 end
