@@ -26,10 +26,18 @@ set(0, 'defaultfigurecolor', [1 1 1])
     
 %% control input over time
     figure(2);
-    plot(tspan, u_out);
-    xlabel('Time (s)'); ylabel('Inputs');
-    title('Control Input')
-    legend('Force - Cart', 'Torque - Joint1', 'Torque - Joint2', 'Torque - Joint3');
+    subplot(211)
+    plot(tspan, u_out(1,:));
+    ylabel('Cart Force (N)')
+    
+    subplot(212)
+    plot(tspan, u_out(2:end,:));
+    ylabel('Torque (Nm)')
+    legend('Torque - Joint1', 'Torque - Joint2', 'Torque - Joint3');
+
+    xlabel('Time (s)'); 
+%     title('Control Input')
+%     legend('Force - Cart', 'Torque - Joint1', 'Torque - Joint2', 'Torque - Joint3');
 
 %% end effector kinematics
     rE = zeros(2, length(tspan));
