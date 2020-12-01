@@ -17,10 +17,11 @@ function dz_hat = obsv_standard_lqr(y, x_hat, u, p, p_obsv)
     C = p_obsv.C;
     L = p_obsv.L;
     zf = p_obsv.zf;
-    
+    u_equi = p_obsv.u_equi;
     yf = C*zf; % final output
+    
 
     % compute observer dynamics to be integrated
     % notice the use of offsets
-    dz_hat = (A - L*C)*(x_hat - zf) + B*u + L*(y - yf);
+    dz_hat = (A - L*C)*(x_hat - zf) + B*(u-u_equi) + L*(y - yf);
 end

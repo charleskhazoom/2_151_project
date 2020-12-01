@@ -16,7 +16,7 @@ function [A_lin, B_lin] = linearize_dynamics(z_equi, u_equi, p)
     t = 0; % dummy assignation of t variable
     dz_equi = dynamics(t, z_equi, u_equi, p); % equilibrium dz
     
-    ep = 1e-6; % tolerance
+    ep = 1e-10; % tolerance
     delStateMat = eye(n_states);
     delInputMat = eye(n_inputs);
     A_lin = zeros(n_states);

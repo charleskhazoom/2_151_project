@@ -323,7 +323,7 @@ switch chosen_ctrl_str
         control_law = @(t, z) (control_law_standard_lqr(t, z, p_model, p_ctrl_lqr) + u_equi);
         
     %--------------------------- observer design ---------------------------- %
-        obs_poles = eig(A_lin - B_lin*K_lqr)*25; % arbitrary decision - poles 25x faster than system
+        obs_poles = eig(A_lin - B_lin*K_lqr)*10; % arbitrary decision - poles 25x faster than system
      
         % pole placement (replace by Kalman later)
         L = place(A_lin', C_ob', obs_poles)';
@@ -332,6 +332,7 @@ switch chosen_ctrl_str
         p_obsv.B = B_lin;
         p_obsv.C = C_ob;
         p_obsv.zf = zf;
+        p_obsv.u_equi = u_equi;
         observer_dynamics = @(y, x_hat, u) obsv_standard_lqr(y, x_hat, u, p_model, p_obsv);
 
     otherwise

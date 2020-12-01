@@ -87,14 +87,16 @@ clear; clc; %close all;
     
 %% Measurement matrix C
     % measure cart position, joint angles, ball position
-%     Cob = zeros(6, numStates);
-%     Cob(1, 1) = 1;
-%     Cob(2, 2) = 1;
-%     Cob(3, 3) = 1;
-%     Cob(4, 4) = 1;
-%     Cob(end - 1, 9) = 1;
+    Cob = zeros(5, numStates);
+    Cob(1, 1) = 1;
+    Cob(2, 2) = 1;
+    Cob(3, 3) = 1;
+    Cob(4, 4) = 1;
+    Cob(5, 9) = 1; 
 %     Cob(end, end) = 1;
-    Cob = eye(numStates);
+    
+% Cob = eye(numStates);
+    
 %     Cob = [Cob(1:4, :); Cob(end - 1:end, :)]
 %     Cob = Cob(1:end - 1, :);
     
