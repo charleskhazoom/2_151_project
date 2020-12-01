@@ -32,6 +32,6 @@ function dz = dynamics(t, z, u, p)
         dz_ball = ball_dynamics(t, z, qdd, p);
         dz(9) = dz_ball(1);
         dz(10) = dz_ball(2);
-
     end
+    
 end

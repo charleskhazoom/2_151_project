@@ -3,12 +3,12 @@ function config = invKin_arm(pose, p, guess)
 % effector
 %
 % INPUTS
-% pose: [2 by 1] task space position of end effector
-% p: [10 by 1] parameters
-% guess: [4 by 1] initial guess for ik solver
+% pose: task space position of end effector
+% p: parameters
+% guess: initial guess for ik solver
 %
 % OUTPUTS
-% config: [4 by 1] joint configuration for pose
+% config: joint configuration for pose
 
     % Define variables for time, generalized coordinates + derivatives, controls, and parameters 
     syms t th1 th2 real

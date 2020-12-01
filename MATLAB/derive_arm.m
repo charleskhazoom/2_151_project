@@ -1,6 +1,6 @@
 % derive_arm: sets up the system, stores symbolic system parameters 
 
-clear all; clc
+clear; clc
 
 name = 'arm';
 
