@@ -1,31 +1,37 @@
-function make_plots(tspan, z_out, u_out, dz_out,z_hat_out,dz_hat_out, ball_alongPlate, accel, p,use_observer,zf)
-set(0,'defaultfigurecolor',[1 1 1])
+function make_plots(tspan, z_out, u_out, dz_out, z_hat_out, dz_hat_out, ball_alongPlate, accel, p, use_obsv, zf)
 % make_plots: plot results from simulation - configurations, velocities,
-% accelerations
+% accelerations, observer behavior, system energy
 %
 % INPUTS
 % tspan: timespan of simulation
 % z_out: states over time
-% dz_out: rate of change of states over time
+% u_out: control input over time
+% dz_out: state dynamics over time
+% z_hat_out: state estimates over time
+% dz_hat_out: esimate dynamics over time
 % ball_alongPlate: state of ball on platform
 % accel: ball acceleration along platform
 % p: parameters
+% use_obsv: boolean to determine if observer used to estimate states
+% zf: final state
 
-%% plot energy of arm over time
+set(0, 'defaultfigurecolor', [1 1 1])
+
+%% energy of arm over time
     E = energy_arm(z_out, p);
     figure(1); clf
     plot(tspan, E);
     xlabel('Time (s)'); ylabel('Energy (J)');
     title('System Energy');
     
-%% plot control input over time
+%% control input over time
     figure(2);
     plot(tspan, u_out);
     xlabel('Time (s)'); ylabel('Inputs');
     title('Control Input')
     legend('Force - Cart', 'Torque - Joint1', 'Torque - Joint2', 'Torque - Joint3');
 
-%% plot results over time
+%% end effector kinematics
     rE = zeros(2, length(tspan));
     vE = zeros(2, length(tspan));
     
@@ -33,18 +39,17 @@ set(0,'defaultfigurecolor',[1 1 1])
         rE(:, i) = position_endEffector(z_out(:, i), p);
         vE(:, i) = velocity_endEffector(z_out(:, i), p);
     end
-    
-    % end effector position
+
+    % position
     figure(3); clf;
     hold on
     plot(tspan, rE(1, :), 'r', 'LineWidth', 2)
     plot(tspan, rE(2, :), 'b', 'LineWidth', 2)
     xlabel('Time (s)'); ylabel('Position (m)');
-%     legend({'x', 'x_d_e_s', 'y', 'y_d_e_s'});
     legend({'x', 'y'})
     title('End Effector Position');
 
-    % end effector velocity
+    % velocity
     figure(4); clf;
     hold on
     plot(tspan, vE(1, :), 'r', 'LineWidth', 2)
@@ -53,22 +58,23 @@ set(0,'defaultfigurecolor',[1 1 1])
     legend({'vel_x', 'vel_y'});
     title('End Effector Velocity');
 
+%% State variables
     % joint angles
     figure(5)
     subplot(211)
     plot(tspan, z_out(2:4, :)*180/pi)
     legend('q_1', 'q_2', 'q_3');
     ylabel('Joint Angles (deg)');
-%     title('Joint Angles');
     
     subplot(212)
     plot(tspan, z_out(1, :))
-    xlabel('Time (s)');ylabel('Cart Position (m)');
+    xlabel('Time (s)');
+    ylabel('Cart Position (m)');
     
     % joint velocities
     figure(6)
     plot(tspan, z_out(6:8, :)*180/pi)
-    legend({'$\dot{\theta_1}$', '$\dot{\theta_2}$', '$\dot{\theta_3}$'}, 'Interpreter','latex');
+    legend({'$\dot{\theta_1}$', '$\dot{\theta_2}$', '$\dot{\theta_3}$'}, 'Interpreter', 'latex');
     xlabel('Time (s)');
     ylabel('Angular Velocity (deg/sec)');
     title('Joint Velocities');
@@ -79,7 +85,7 @@ set(0,'defaultfigurecolor',[1 1 1])
     thetadot =    180/pi*dz_out(2, :) + 180/pi*dz_out(3, :) + 180/pi*dz_out(4, :);
     thetadotdot = 180/pi*dz_out(6, :) + 180/pi*dz_out(7, :) + 180/pi*dz_out(8, :); 
     plot(tspan, theta, 'b', tspan, thetadot, 'g', tspan, thetadotdot, 'r')
-    legend({'Angle (deg)' , 'Velocity (deg/sec)','Acceleration (deg/sec^2'});
+    legend({'Angle (deg)' , 'Velocity (deg/sec)','Acceleration (deg/sec^2)'});
     xlabel('Time (s)');
     ylabel('Plate Kinematics');
     title('Plate Behavior in World Frame');
@@ -100,36 +106,35 @@ set(0,'defaultfigurecolor',[1 1 1])
     ylabel('Acceleration (m/secc^2)');
     title('Accleration of Plate in World Frame');
 
-    % observed states vs real states
-        str_list = {'$x$ (m)', '$q_1$ (rad)','$q_2$ (rad)','$q_3$ (rad)', '$\dot{x}$ (m/s)','$\dot{q}_1$ (m/s)',...
-            '$\dot{q}_2$ (rad/s)','$\dot{q}_3$ (rad/s)','$x_{b}$ (m)','$\dot{x}_{b}$ (m/s)'};
-%         str_label_list = {''}
-        figure(11);
-        clf;        
-        for k = 1:10
+%% Observer behavior
+    str_list = {'$x$ (m)', '$q_1$ (rad)', '$q_2$ (rad)', '$q_3$ (rad)', ...
+        '$\dot{x}$ (m/s)', '$\dot{q}_1$ (m/s)', '$\dot{q}_2$ (rad/s)', '$\dot{q}_3$ (rad/s)', ...
+        '$x_{b}$ (m)', '$\dot{x}_{b}$ (m/s)'};
+    
+    figure(11);
+    clf;
+    for k = 1:10
+        subplot(5, 2, k)
+        hold on;
+        plot(tspan, z_out(k, :)', '-', 'linewidth', 1.5);
 
-        subplot(5,2,k)
-        plot(tspan, z_out(k,:)','-','linewidth',1.5);hold on;
-        if use_observer==1
-            plot(tspan, z_hat_out(k,1:end-1)','--','linewidth',1.8);
+        if use_obsv
+            plot(tspan, z_hat_out(k, 1:end - 1)', '--', 'linewidth', 1.8);
         end
-        
-        plot([tspan(1) tspan(end)], [zf(k) zf(k)],'-.k','linewidth',1.8);
-%         title(str_list{k}, 'Interpreter','latex')
-%         title(str_list{k}, 'Interpreter','latex','fontsize',20)
-        ylabel(str_list{k}, 'Interpreter','latex','fontsize',20)
 
-        if k==9||k==10
-            xlabel('Time (s)', 'Interpreter','latex','fontsize',20);
+        plot([tspan(1) tspan(end)], [zf(k) zf(k)], '-.k', 'linewidth', 1.8);
+        ylabel(str_list{k}, 'Interpreter', 'latex', 'fontsize', 20)
+
+        if k == 9 || k == 10
+            xlabel('Time (s)', 'Interpreter', 'latex', 'fontsize', 20);
         end
-        if use_observer==1
-            legend_str= {'True State','Observer State','Desired Final State'};
-        else
-            legend_str= {'True State','Desired Final State'};
-        end
-            if k==1
-                legend(legend_str,'fontsize',10,'orientation','horizontal')
+
+        if k == 1
+            if use_obsv
+                legend({'True State', 'Observer State', 'Desired Final State'}, 'fontsize', 10, 'orientation', 'horizontal')
+            else
+                legend({'True State', 'Desired Final State'}, 'fontsize', 10, 'orientation', 'horizontal')
             end
         end
     end
-    
+end

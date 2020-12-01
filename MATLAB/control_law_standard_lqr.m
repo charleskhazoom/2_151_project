@@ -17,5 +17,7 @@ function u = control_law_standard_lqr(t, z, p, p_ctrl)
     zf = p_ctrl.zf;
     
     % u = r - K*x
-    u = K_r*zf(1:4) - K_lqr*(z(1:8)-zf(1:8));
+%     u = K_r*zf - K_lqr*(z(1:8) - zf(1:8));
+    u = K_r*zf - K_lqr*(z - zf);
+%     u = -K_lqr*(z - zf);
 end
