@@ -191,7 +191,10 @@ switch chosen_ctrl_str
 %         K = place(A_aug, B_aug,des_poles);
 %         sysOL = ss(A,B,eye(nState),0);
 %         sysOL_lqi = ss(A_aug,B_aug,eye(nState+2),0);
-%         sysCL_lqi = ss(A_aug-B_aug*K,B_aug,eye(nState+2),0);
+        sysCL_lqi = ss(A_aug-B_aug*K,B_aug,eye(nState+2),0);
+        
+        figure;
+        pzplot(sysCL_lqi);
         
         p_ctrl_fl.lqi_gain = K;
         kr_q = zeros(4);%-inv(C([1:4], 1:10)*inv(A - B*K)*B);
