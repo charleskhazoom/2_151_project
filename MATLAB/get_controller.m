@@ -286,7 +286,10 @@ switch chosen_ctrl_str
         u_equi = Grav_arm(zf, p_model); % inputs at equilibrium = gravity - for non-zero set point
         
         [A_lin, B_lin] = linearize_dynamics(zf, u_equi, p_model);
-        assert(rank(ctrb(A_lin, B_lin)) == length(A_lin), 'System is not controllable\n'); % check controllability
+        assert(rank(ctrb(A_lin, B_lin)) == length(A_lin), 'System is not controllable'); % check controllability
+        assert(rank(obsv(A_lin, C_ob)) == length(A_lin), 'System is not observable'); % check observability
+        fprintf(['Condition number of controllability  matrix: ', num2str(cond(ctrb(A_lin, B_lin))), '\n'])
+        fprintf(['Condition number of observability matrix: ', num2str(cond(obsv(A_lin, C_ob))), '\n'])
 
         % Q matrix
         Q = zeros(nStates);
@@ -294,19 +297,19 @@ switch chosen_ctrl_str
         Q(2, 2) = 1/(deg2rad(10))^2; % max joint 1 angle
         Q(3, 3) = 1/(deg2rad(10))^2; % max joint 2 angle
         Q(4, 4) = 1/(deg2rad(10))^2; % max joint 3 angle
-        Q(5, 5) = 0;%1/(2)^2; % max cart velocity 
-        Q(6, 6) = 0;%1/(50)^2; % max joint 1 velocity
-        Q(7, 7) = 0;%1/(50)^2; % max joint 2 velocity
-        Q(8, 8) = 0;%1/(50)^2; % max joint 3 velocity
+        Q(5, 5) = 0; % max cart velocity 
+        Q(6, 6) = 0; % max joint 1 velocity
+        Q(7, 7) = 0; % max joint 2 velocity
+        Q(8, 8) = 0; % max joint 3 velocity
         Q(9, 9) = 1/(0.05)^2; % ball position deviation
         Q(10, 10) = 1/(1)^2; % ball velocity deviation
 
         % R matrix
         R = zeros(nInputs);
-        R(1, 1) = 0.001;%1/(1.5)^2; % cart force
-        R(2, 2) = 1/(0.5)^2; % torque 1
-        R(3, 3) = 1/(3)^2; % torque 2
-        R(4, 4) = 1/(10)^2; % torque 3
+        R(1, 1) = 0.01; % cart force limit
+        R(2, 2) = 1/(0.5)^2; % torque 1 limit
+        R(3, 3) = 1/(3)^2; % torque 2 limit
+        R(4, 4) = 1/(10)^2; % torque 3 limit
 
         K_lqr = lqr(A_lin, B_lin, Q, R);
         p_ctrl_lqr.lqr_gain = K_lqr;
@@ -317,7 +320,7 @@ switch chosen_ctrl_str
         control_law = @(t, z) (control_law_standard_lqr(t, z, p_model, p_ctrl_lqr) + u_equi);
         
     %--------------------------- observer design ---------------------------- %
-        obs_poles = eig(A_lin - B_lin*K_lqr)*3; % arbitrary decision - poles 3x faster than system
+        obs_poles = eig(A_lin - B_lin*K_lqr)*25; % arbitrary decision - poles 25x faster than system
      
         % pole placement (replace by Kalman later)
         L = place(A_lin', C_ob', obs_poles)';

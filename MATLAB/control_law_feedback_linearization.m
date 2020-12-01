@@ -10,6 +10,7 @@ function u = control_law_feedback_linearization(t, z, p, p_ctrl)
 %
 % OUTPUT
 % u: Control output
+
     z = z(1:8); % ignore ball states
     
     % unpack controller parameters

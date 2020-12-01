@@ -9,7 +9,7 @@ function simulate_arm()
 % OUTPUTS
 % N/A
     
-clear all; clc; %close all;
+clear; clc; %close all;
 
 %% Define fixed paramters
     m_cart = 50; % cart mass, kg         
@@ -49,8 +49,8 @@ clear all; clc; %close all;
     num_step = floor(tf/dt);
     tspan = linspace(0, tf, num_step);
     
-    p_cup_initial = [-0.8, 0.5]'; % initial position of ball (x, y), m
-    q0 = eval(invKin_arm(p_cup_initial, p , [0, 0]')); % initial configuration
+    pos_ball0 = [-0.8, 0.5]'; % initial position of ball (x, y), m
+    q0 = eval(invKin_arm(pos_ball0, p , [0, 0]')); % initial configuration
     z0 = [q0; 0; 0; 0; 0; 0.02; 0]; % initial state
     
     fprintf(['Initial State\nx_cart: ' num2str(q0(1)) ' m\n' ...
@@ -58,8 +58,8 @@ clear all; clc; %close all;
         'theta_2: ' num2str(q0(3)) ' rad\n' ...
         'theta_3: ' num2str(q0(4)) ' rad\n']);
 
-    p_cup_final = [0.5, 0.3]'; % need to specify orientation of last link in the world frame too!
-    qf = eval(invKin_arm(p_cup_final, p, q0(2:3))); % final configuration
+    pos_ballf = [0.5, 0.3]'; % need to specify orientation of last link in the world frame too!
+    qf = eval(invKin_arm(pos_ballf, p, q0(2:3))); % final configuration
     zf = [qf; 0; 0; 0; 0; 0; 0]; % final state, consider if you can't overconstrain ball final state
     
     fprintf(['\nFinal State\nx_cart: ' num2str(qf(1)) ' m\n' ...
@@ -87,30 +87,36 @@ clear all; clc; %close all;
     
 %% Measurement matrix C
     % measure cart position, joint angles, ball position
-    Cob = zeros(5, numStates);
-    Cob(1, 1) = 1;
-    Cob(2, 2) = 1;
-    Cob(3, 3) = 1;
-    Cob(4, 4) = 1;
-    Cob(5, 9) = 1;
+%     Cob = zeros(6, numStates);
+%     Cob(1, 1) = 1;
+%     Cob(2, 2) = 1;
+%     Cob(3, 3) = 1;
+%     Cob(4, 4) = 1;
+%     Cob(end - 1, 9) = 1;
+%     Cob(end, end) = 1;
+    Cob = eye(numStates);
+%     Cob = [Cob(1:4, :); Cob(end - 1:end, :)]
+%     Cob = Cob(1:end - 1, :);
     
     % I don't know how to implement a kalman filter here. I Cant' get the
     % kalman() to output a solution... Why?
     % noise covariance Wo
-    Wo = zeros(5);
+    Wo = zeros(size(Cob, 1));
     Wo(1, 1) = (1/12)*0.2;
     Wo(2, 2) = (1/12);
     Wo(3, 3) = (1/12);
     Wo(4, 4) = (1/12);
-    Wo(5, 5) = (0.05)^2;
+%     Wo(5, 5) = (1/12)^2;
+    Wo(end, end) = (0.05)^2;
+    
 %     Wi = eye(10)*0.01^2;
     Wi = eye(4)*0.1^2;
 %     Wi(1, 1) = 0.1^2; Wi(2, 2) = 1^2; Wi(3, 3) = 1^2; Wi(4, 4) = 1^2;
     
-    v = Wo*randn(5, num_step); % sensor noises
+    v = Wo*randn(size(Cob, 1), num_step); % sensor noises
     
 %% Choose control law
-    use_observer = 0; % 0: full state feedback. 1: observer feedback.
+    use_observer = 1; % 0: full state feedback. 1: observer feedback.
     % also, if no observer is designed in the chosen control law, get
     % controller returns obsv_dynamics as empty, and observer is ignored in
     % integration loop
@@ -210,6 +216,6 @@ clear all; clc; %close all;
     theta = z_out(2, :) + z_out(3, :) - pi/2 + z_out(4, :); % plate angle
     hold on
     keep_frames = 0;
-    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, p_cup_initial, p_cup_final, keep_frames);
+    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, pos_ball0, pos_ballf, keep_frames);
     
 end
