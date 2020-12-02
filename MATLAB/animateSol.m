@@ -1,4 +1,4 @@
-function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos, keep_frames)
+function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos, keep_frames, videoName)
 % animateSol: animate robot and ball positions over time using evolution of
 % the states and control found above
 %
@@ -57,6 +57,11 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos, keep_f
     ball_traj = [];
     col = [0.3 0.3 0.3];
      
+    % video setup
+    myVideo = VideoWriter(videoName, 'MPEG-4');
+    myVideo.FrameRate = 10;
+    open(myVideo)
+    
     % Step through and update animation
     k = 1;
     pause(1) % wait 1 second
@@ -160,5 +165,9 @@ function animateSol(tspan, x, p, ballX, rEE, theta, start_pos, final_pos, keep_f
         end
         
         pause(0.1) % wait, draw next frame
+        
+        % save video
+        frame = getframe(gcf);
+        writeVideo(myVideo, frame);
     end
 end

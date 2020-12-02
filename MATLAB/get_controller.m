@@ -296,23 +296,23 @@ switch chosen_ctrl_str
 
         % Q matrix
         Q = zeros(nStates);
-        Q(1, 1) = 1/(0.1)^2; % max cart position
+        Q(1, 1) = 1/(0.05)^2; % max cart position
         Q(2, 2) = 1/(deg2rad(10))^2; % max joint 1 angle
         Q(3, 3) = 1/(deg2rad(10))^2; % max joint 2 angle
-        Q(4, 4) = 1/(deg2rad(10))^2; % max joint 3 angle
+        Q(4, 4) = 1/(deg2rad(3))^2; % max joint 3 angle
         Q(5, 5) = 0; % max cart velocity 
-        Q(6, 6) = 0; % max joint 1 velocity
-        Q(7, 7) = 0; % max joint 2 velocity
-        Q(8, 8) = 0; % max joint 3 velocity
-        Q(9, 9) = 1/(0.05)^2; % ball position deviation
-        Q(10, 10) = 1/(1)^2; % ball velocity deviation
+        Q(6, 6) = 1/(5)^2; % max joint 1 velocity
+        Q(7, 7) = 1/(2.5)^2; % max joint 2 velocity
+        Q(8, 8) = 1/(1)^2; % max joint 3 velocity
+        Q(9, 9) = 1/(0.02)^2; % ball position deviation
+        Q(10, 10) = 1/(3)^2; % ball velocity deviation
 
         % R matrix
         R = zeros(nInputs);
         R(1, 1) = 0.01; % cart force limit
-        R(2, 2) = 1/(0.5)^2; % torque 1 limit
-        R(3, 3) = 1/(3)^2; % torque 2 limit
-        R(4, 4) = 1/(10)^2; % torque 3 limit
+        R(2, 2) = 1/(4)^2; % torque 1 limit
+        R(3, 3) = 1/(2)^2; % torque 2 limit
+        R(4, 4) = 1/(0.35)^2; % torque 3 limit
 
         K_lqr = lqr(A_lin, B_lin, Q, R);
         p_ctrl_lqr.lqr_gain = K_lqr;
@@ -323,8 +323,14 @@ switch chosen_ctrl_str
         control_law = @(t, z) (control_law_standard_lqr(t, z, p_model, p_ctrl_lqr) + u_equi);
         
     %--------------------------- observer design ---------------------------- %
-        obs_poles = eig(A_lin - B_lin*K_lqr)*10; % arbitrary decision - poles 25x faster than system
+        cont_poles = eig(A_lin - B_lin*K_lqr);
+        obs_poles = cont_poles*3; % arbitrary decision - poles 3x faster than system
      
+        sys = ss(A_lin - B_lin*K_lqr, B_lin, C_ob, []);
+        figure(15)
+        pzmap(sys)
+        grid on
+        
         % pole placement (replace by Kalman later)
         L = place(A_lin', C_ob', obs_poles)';
         p_obsv.L = L;

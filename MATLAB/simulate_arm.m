@@ -92,13 +92,7 @@ clear; clc; %close all;
     Cob(2, 2) = 1;
     Cob(3, 3) = 1;
     Cob(4, 4) = 1;
-    Cob(5, 9) = 1; 
-%     Cob(end, end) = 1;
-    
-% Cob = eye(numStates);
-    
-%     Cob = [Cob(1:4, :); Cob(end - 1:end, :)]
-%     Cob = Cob(1:end - 1, :);
+    Cob(5, 9) = 1;
     
     % I don't know how to implement a kalman filter here. I Cant' get the
     % kalman() to output a solution... Why?
@@ -108,10 +102,8 @@ clear; clc; %close all;
     Wo(2, 2) = (1/12);
     Wo(3, 3) = (1/12);
     Wo(4, 4) = (1/12);
-%     Wo(5, 5) = (1/12)^2;
     Wo(end, end) = (0.05)^2;
     
-%     Wi = eye(10)*0.01^2;
     Wi = eye(4)*0.1^2;
 %     Wi(1, 1) = 0.1^2; Wi(2, 2) = 1^2; Wi(3, 3) = 1^2; Wi(4, 4) = 1^2;
     
@@ -124,6 +116,8 @@ clear; clc; %close all;
     % integration loop
 
     use_noise = 0; % 0: no noise. 1: Gaussian noise.
+    
+    use_mass_error = 1; % 0: no mass error. 1: mass error.
 
 %     ctrl_law_str = 'joint_space_fb_lin';
 %     ctrl_law_str = 'joint_space_fb_lin_with_ball';
@@ -136,8 +130,14 @@ clear; clc; %close all;
     fprintf(['Using observer: ' num2str(use_observer) '\n'])
     fprintf(['Using noise: ' num2str(use_noise) '\n'])
     
+    if use_mass_error
+        params = p_estim;
+    else
+        params = p;
+    end        
+    
     % outputs function handle to be used during Euler integration (for loop below)
-    [control_law, obsv_dynamics, int_dynamics] = get_controller(zf, p_estim, ctrl_law_str, Cob, Wo, Wi);
+    [control_law, obsv_dynamics, int_dynamics] = get_controller(zf, params, ctrl_law_str, Cob, Wo, Wi);
 
 % to design a new control law:
 % 1) create function in external file which takes as argument
@@ -214,10 +214,12 @@ clear; clc; %close all;
     end
 
 %% Animate Solution
+    % get video title
+    videoName = [ctrl_law_str '_observer' num2str(use_observer) '_mass_error' num2str(use_mass_error)];
     figure(7); clf;
     theta = z_out(2, :) + z_out(3, :) - pi/2 + z_out(4, :); % plate angle
     hold on
     keep_frames = 0;
-    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, pos_ball0, pos_ballf, keep_frames);
+    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, pos_ball0, pos_ballf, keep_frames, videoName);
     
 end
