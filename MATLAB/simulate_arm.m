@@ -214,12 +214,15 @@ clear; clc; %close all;
     end
 
 %% Animate Solution
+    % option to save video
+    save_video = 0;
     % get video title
     videoName = [ctrl_law_str '_observer' num2str(use_observer) '_mass_error' num2str(use_mass_error)];
+    
     figure(7); clf;
     theta = z_out(2, :) + z_out(3, :) - pi/2 + z_out(4, :); % plate angle
     hold on
     keep_frames = 0;
-    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, pos_ball0, pos_ballf, keep_frames, videoName);
+    animateSol(tspan, z_out, p, ball_alongPlate, rE, theta, pos_ball0, pos_ballf, keep_frames, videoName, save_video);
     
 end
